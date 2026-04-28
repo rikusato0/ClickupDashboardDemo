@@ -334,11 +334,13 @@ export default function App() {
       <aside className="sticky top-0 flex h-svh w-56 shrink-0 flex-col bg-wl-teal-muted px-3 py-6 text-white shadow-md">
         <div className="mb-8 flex items-center gap-3 px-2">
           <img
-            src="/white-lotus-mark.svg"
+            src="/icon48.png"
+            srcSet="/icon48.png 1x, /icon128.png 2x"
             alt=""
-            className="h-11 w-11 shrink-0"
-            width={44}
-            height={44}
+            width={48}
+            height={48}
+            className="h-11 w-11 shrink-0 object-contain"
+            decoding="async"
           />
           <div className="min-w-0 text-left">
             <div className="font-display text-[11px] font-bold tracking-[0.14em] text-white">
