@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/* White Lotus Bookkeeping brand colors. Gotham → Montserrat (Google Fonts)
+   until a licensed web font stack is available. */
+@theme {
+  --font-sans:
+    'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-sans);
+
+  --color-wl-teal: #6ed1d6;
+  --color-wl-orange: #ff8500;
+  --color-wl-teal-muted: #6daaac;
+  --color-wl-surface: #aabcbb;
+  --color-wl-page: #eef4f4;
+  --color-wl-card: #ffffff;
+  --color-wl-ink: #2d3a3a;
+  --color-wl-ink-muted: #5c6f6f;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background-color: var(--color-wl-page);
+  color: var(--color-wl-ink);
+}
+
+#root {
+  min-height: 100svh;
+}
