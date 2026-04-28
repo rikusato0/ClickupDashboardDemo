@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,7 +14,6 @@ import {
 } from 'recharts'
 import {
   Building2,
-  CalendarRange,
   ChevronRight,
   Clock,
   Download,
@@ -24,8 +23,10 @@ import {
   Rocket,
   Sparkles,
   Users,
+  X,
 } from 'lucide-react'
 import {
+  type OnboardingClient,
   type TaskType,
   TASK_TYPES,
   clientContacts,
@@ -40,7 +41,12 @@ import {
   type TimeEntry,
   weeklyEmailVolume,
 } from './data/demo'
+import { onboardingDetailsById } from './data/onboardingDetails'
+import { DateRangePicker } from './components/DateRangePicker'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
+
+const BASELINE_FROM = format(demoDateRange.start, 'yyyy-MM-dd')
+const BASELINE_TO = format(demoDateRange.end, 'yyyy-MM-dd')
 
 type NavId =
   | 'timesheets'
@@ -158,10 +164,8 @@ function sentimentColor(score: number) {
 
 export default function App() {
   const [nav, setNav] = useState<NavId>('timesheets')
-  const [dateFrom, setDateFrom] = useState(
-    format(demoDateRange.start, 'yyyy-MM-dd'),
-  )
-  const [dateTo, setDateTo] = useState(format(demoDateRange.end, 'yyyy-MM-dd'))
+  const [dateFrom, setDateFrom] = useState(BASELINE_FROM)
+  const [dateTo, setDateTo] = useState(BASELINE_TO)
   const [filterStaff, setFilterStaff] = useState<string[] | null>(null)
   const [filterClients, setFilterClients] = useState<string[] | null>(null)
   const [filterTaskTypes, setFilterTaskTypes] = useState<TaskType[] | null>(
@@ -172,6 +176,16 @@ export default function App() {
   >('overview')
   const [exportStaffId, setExportStaffId] = useState(staff[0]!.id)
   const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
+  const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
+    () =>
+      onboardingClients.map((c) => ({
+        ...c,
+        steps: c.steps.map((s) => ({ ...s })),
+      })),
+  )
+  const [onboardingDetailId, setOnboardingDetailId] = useState<string | null>(
+    null,
+  )
 
   const filterOpts = useMemo(
     () => ({
@@ -325,6 +339,36 @@ export default function App() {
 
   const last4WeeksEmail = emailChartData.slice(-4)
 
+  const toggleOnboardingStep = (clientId: string, stepIndex: number) => {
+    setOnboardingState((prev) =>
+      prev.map((ob) => {
+        if (ob.id !== clientId) return ob
+        const steps = ob.steps.map((s, i) =>
+          i === stepIndex ? { ...s, done: !s.done } : s,
+        )
+        const doneCount = steps.filter((s) => s.done).length
+        const percentComplete = steps.length
+          ? Math.round((doneCount / steps.length) * 100)
+          : ob.percentComplete
+        return { ...ob, steps, percentComplete }
+      }),
+    )
+  }
+
+  const onboardingDetail =
+    onboardingDetailId != null
+      ? onboardingDetailsById[onboardingDetailId]
+      : undefined
+
+  useEffect(() => {
+    if (!onboardingDetailId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOnboardingDetailId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onboardingDetailId])
+
   return (
     <div className="flex min-h-svh text-wl-ink">
       <div
@@ -398,31 +442,17 @@ export default function App() {
               (timesheets via API, email metrics via Google Workspace).
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex flex-wrap items-center gap-2 rounded-full border border-wl-surface/60 bg-wl-surface/25 px-4 py-2 text-xs">
-              <CalendarRange className="h-4 w-4 text-wl-ink-muted" />
-              <label className="sr-only" htmlFor="df">
-                From
-              </label>
-              <input
-                id="df"
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-full border-0 bg-wl-surface px-3 py-2 font-medium uppercase text-wl-ink placeholder:text-wl-ink-muted"
-              />
-              <span className="text-wl-ink-muted">–</span>
-              <label className="sr-only" htmlFor="dt">
-                To
-              </label>
-              <input
-                id="dt"
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-full border-0 bg-wl-surface px-3 py-2 font-medium uppercase text-wl-ink placeholder:text-wl-ink-muted"
-              />
-            </div>
+          <div className="flex flex-wrap items-end justify-end gap-2">
+            <DateRangePicker
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => {
+                setDateFrom(f)
+                setDateTo(t)
+              }}
+              baselineFrom={BASELINE_FROM}
+              baselineTo={BASELINE_TO}
+            />
           </div>
         </header>
 
@@ -1110,7 +1140,7 @@ export default function App() {
               subtitle="Same visual language as month-end close boards: stages, owners, and checklist completion."
             >
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {onboardingClients.map((ob) => {
+                {onboardingState.map((ob) => {
                   const owner = staff.find((x) => x.id === ob.ownerStaffId)
                   return (
                     <div
@@ -1143,34 +1173,41 @@ export default function App() {
                         </div>
                       </div>
                       <ul className="mt-4 space-y-2 text-sm text-wl-ink">
-                        {ob.steps.map((step) => (
-                          <li
-                            key={step.label}
-                            className="flex items-start gap-2"
-                          >
-                            <span
-                              className={cn(
-                                'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[10px]',
-                                step.done
-                                  ? 'border-wl-teal-muted bg-wl-teal/15 text-wl-teal-muted'
-                                  : 'border-wl-surface bg-wl-page text-wl-ink-muted',
-                              )}
+                        {ob.steps.map((step, stepIndex) => (
+                          <li key={`${ob.id}-step-${stepIndex}`}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                toggleOnboardingStep(ob.id, stepIndex)
+                              }
+                              className="flex w-full items-start gap-2 rounded-xl py-0.5 text-left transition hover:bg-wl-teal/10"
                             >
-                              {step.done ? '✓' : ''}
-                            </span>
-                            <span>
-                              {step.label}
-                              {step.owner && (
-                                <span className="ml-1 text-xs text-wl-ink-muted">
-                                  ({step.owner})
-                                </span>
-                              )}
-                            </span>
+                              <span
+                                className={cn(
+                                  'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[10px]',
+                                  step.done
+                                    ? 'border-wl-teal-muted bg-wl-teal/15 text-wl-teal-muted'
+                                    : 'border-wl-surface bg-wl-page text-wl-ink-muted',
+                                )}
+                                aria-hidden
+                              >
+                                {step.done ? '✓' : ''}
+                              </span>
+                              <span>
+                                {step.label}
+                                {step.owner && (
+                                  <span className="ml-1 text-xs text-wl-ink-muted">
+                                    ({step.owner})
+                                  </span>
+                                )}
+                              </span>
+                            </button>
                           </li>
                         ))}
                       </ul>
                       <button
                         type="button"
+                        onClick={() => setOnboardingDetailId(ob.id)}
                         className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-wl-orange hover:text-wl-teal-muted"
                       >
                         Open detail
@@ -1184,6 +1221,125 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {onboardingDetailId != null && onboardingDetail && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-wl-ink/40 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOnboardingDetailId(null)
+          }}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-wl-surface/60 bg-wl-card shadow-2xl"
+            role="dialog"
+            aria-labelledby="onboarding-detail-title"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-wl-surface/40 bg-wl-card px-5 py-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-wl-orange">
+                  Onboarding detail
+                </p>
+                <h2
+                  id="onboarding-detail-title"
+                  className="font-display text-lg font-bold text-wl-teal"
+                >
+                  {onboardingState.find((o) => o.id === onboardingDetailId)
+                    ?.clientName ?? 'Client'}
+                </h2>
+                <p className="mt-1 text-xs text-wl-ink-muted">
+                  {onboardingState.find((o) => o.id === onboardingDetailId)
+                    ?.stage ?? ''}{' '}
+                  ·{' '}
+                  {onboardingState.find((o) => o.id === onboardingDetailId)
+                    ?.percentComplete ?? 0}
+                  % complete
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-xl p-2 text-wl-ink-muted transition hover:bg-wl-teal/10 hover:text-wl-ink"
+                onClick={() => setOnboardingDetailId(null)}
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-5 px-5 py-4 text-sm text-wl-ink">
+              <p className="leading-relaxed text-wl-ink-muted">
+                {onboardingDetail.executiveSummary}
+              </p>
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-teal-muted">
+                  Milestones
+                </h3>
+                <ul className="space-y-2">
+                  {onboardingDetail.milestones.map((m) => (
+                    <li
+                      key={`${m.date}-${m.label}`}
+                      className="flex flex-col gap-1 border-b border-wl-surface/30 pb-3 text-xs last:border-0 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <span className="font-semibold text-wl-ink">{m.label}</span>
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <span className="tabular-nums text-wl-ink-muted">
+                          {m.date}
+                        </span>
+                        <span
+                          className={cn(
+                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase',
+                            m.status === 'done' &&
+                              'bg-wl-teal/15 text-wl-teal-muted',
+                            m.status === 'upcoming' &&
+                              'bg-wl-surface/40 text-wl-ink-muted',
+                            m.status === 'at-risk' &&
+                              'bg-wl-orange/15 text-wl-orange',
+                          )}
+                        >
+                          {m.status === 'at-risk'
+                            ? 'At risk'
+                            : m.status === 'done'
+                              ? 'Done'
+                              : 'Upcoming'}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {onboardingDetail.blockers.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-orange">
+                    Blockers
+                  </h3>
+                  <ul className="list-inside list-disc space-y-1 text-xs text-wl-ink-muted">
+                    {onboardingDetail.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-teal-muted">
+                  Client contacts
+                </h3>
+                <ul className="space-y-1 text-xs">
+                  {onboardingDetail.clientContacts.map((c) => (
+                    <li key={c.name}>
+                      <span className="font-semibold">{c.name}</span>
+                      <span className="text-wl-ink-muted"> — {c.role}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="rounded-xl bg-wl-teal/10 px-3 py-2 text-xs font-semibold text-wl-teal-muted">
+                Next sync: {onboardingDetail.nextSync}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
