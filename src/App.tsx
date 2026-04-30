@@ -441,7 +441,7 @@ export default function App() {
           <span className="hidden h-8 w-px bg-wl-surface sm:block" aria-hidden />
           <div className="min-w-0 flex-1 basis-[min(100%,18rem)] sm:basis-auto">
             <h1 className="text-base font-semibold tracking-tight text-wl-ink sm:text-[17px]">
-              Operational dashboard
+              Metrics — White Lotus Bookkeeping
             </h1>
             <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted">
               Time, communications, and onboarding metrics in one place.
