@@ -30,7 +30,7 @@ type Props = {
   from: string
   to: string
   onChange: (from: string, to: string) => void
-  /** Used by “Clear” to restore dashboard demo window */
+  /** Used by “Clear” to restore the default reporting window */
   baselineFrom: string
   baselineTo: string
   className?: string

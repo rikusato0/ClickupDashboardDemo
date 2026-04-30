@@ -43,6 +43,7 @@ import {
 import { DateRangePicker } from './components/DateRangePicker'
 import { FilterMultiSelect } from './components/FilterMultiSelect'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
+import { fmtExportCell, fmtFixed, fmtInt } from './utils/format'
 
 type NavId =
   | 'timesheets'
@@ -395,7 +396,7 @@ export default function App() {
             </div>
             <span className="hidden h-6 w-px bg-wl-surface/60 sm:block" aria-hidden />
             <p className="hidden text-[11px] text-wl-ink-muted sm:block">
-              Firm reports (demo data)
+              Firm reports
             </p>
           </div>
           <DateRangePicker
@@ -525,17 +526,20 @@ export default function App() {
               <div className="grid gap-6 lg:grid-cols-3">
                 <Card title="Total hours (filtered)">
                   <p className="font-display text-3xl font-bold text-wl-orange">
-                    {Math.round(
-                      filtered.reduce((a, e) => a + e.hours, 0) * 10,
-                    ) / 10}
+                    {fmtFixed(
+                      Math.round(
+                        filtered.reduce((a, e) => a + e.hours, 0) * 10,
+                      ) / 10,
+                      1,
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-wl-ink-muted">
-                    {filtered.length} time entries in range
+                    {fmtInt(filtered.length)} time entries in range
                   </p>
                 </Card>
                 <Card title="Active clients">
                   <p className="font-display text-3xl font-bold text-wl-teal">
-                    {byClient.length}
+                    {fmtInt(byClient.length)}
                   </p>
                   <p className="mt-1 text-xs text-wl-ink-muted">
                     With logged time in filters
@@ -543,7 +547,7 @@ export default function App() {
                 </Card>
                 <Card title="Staff contributing">
                   <p className="font-display text-3xl font-bold text-wl-teal-muted">
-                    {byStaff.length}
+                    {fmtInt(byStaff.length)}
                   </p>
                 </Card>
                 <Card title="Hours by client" className="lg:col-span-3">
@@ -559,8 +563,16 @@ export default function App() {
                           textAnchor="end"
                           height={70}
                         />
-                        <YAxis tick={CHART_TICK} />
-                        <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        <YAxis
+                          tick={CHART_TICK}
+                          tickFormatter={(v) => fmtFixed(Number(v), 1)}
+                        />
+                        <Tooltip
+                          contentStyle={TOOLTIP_STYLE}
+                          formatter={(value) =>
+                            fmtFixed(Number(value), 1)
+                          }
+                        />
                         <Bar dataKey="hours" fill="#6daaac" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -592,7 +604,9 @@ export default function App() {
                             <td className="py-2 pr-4 font-medium text-wl-ink">
                               {r.name}
                             </td>
-                            <td className="py-2 pr-4 tabular-nums">{r.hours}</td>
+                            <td className="py-2 pr-4 tabular-nums">
+                              {fmtFixed(r.hours, 1)}
+                            </td>
                             <td className="py-2">
                               <div className="flex items-center gap-2">
                                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface/50">
@@ -602,7 +616,7 @@ export default function App() {
                                   />
                                 </div>
                                 <span className="w-10 text-right text-xs text-wl-ink-muted">
-                                  {pct}%
+                                  {fmtFixed(pct, 1)}%
                                 </span>
                               </div>
                             </td>
@@ -633,8 +647,16 @@ export default function App() {
                           textAnchor="end"
                           height={64}
                         />
-                        <YAxis tick={CHART_TICK} />
-                        <Tooltip contentStyle={TOOLTIP_STYLE} />
+                        <YAxis
+                          tick={CHART_TICK}
+                          tickFormatter={(v) => fmtFixed(Number(v), 1)}
+                        />
+                        <Tooltip
+                          contentStyle={TOOLTIP_STYLE}
+                          formatter={(value) =>
+                            fmtFixed(Number(value), 1)
+                          }
+                        />
                         <Legend />
                         {TASK_TYPES.map((t) => (
                           <Bar
@@ -673,11 +695,11 @@ export default function App() {
                             </td>
                             {TASK_TYPES.map((t) => (
                               <td key={t} className="py-2 tabular-nums">
-                                {row[t] as number}
+                                {fmtFixed(row[t] as number, 1)}
                               </td>
                             ))}
                             <td className="py-2 tabular-nums font-semibold text-wl-orange">
-                              {row.total as number}
+                              {fmtFixed(row.total as number, 1)}
                             </td>
                           </tr>
                         ))}
@@ -713,14 +735,18 @@ export default function App() {
                             {r.name}
                           </td>
                           <td className="py-2 pr-4 tabular-nums font-semibold text-wl-ink">
-                            {r.hours}
+                            {fmtFixed(r.hours, 1)}
                           </td>
                           <td className="py-2 pr-4 tabular-nums text-wl-ink-muted">
-                            {r.entries}
+                            {fmtInt(r.entries)}
                           </td>
                           <td className="py-2 tabular-nums text-wl-ink-muted">
                             {r.entries
-                              ? Math.round((r.hours / r.entries) * 100) / 100
+                              ? fmtFixed(
+                                  Math.round((r.hours / r.entries) * 100) /
+                                    100,
+                                  2,
+                                )
                               : '—'}
                           </td>
                         </tr>
@@ -733,8 +759,8 @@ export default function App() {
 
             {tsSub === 'export' && (
               <Card
-                title="One-click export (mock)"
-                subtitle="Pattern: per-employee grid of weekday hours + period total — export to CSV / PDF in production."
+                title="Daily export"
+                subtitle="Per-employee weekday hours and period total. Export to CSV when connected."
                 action={
                   <button
                     type="button"
@@ -792,11 +818,11 @@ export default function App() {
                             key={l}
                             className="border border-wl-surface/40 px-2 py-2 text-center tabular-nums text-wl-ink"
                           >
-                            {exportDays.row[l] as string | number}
+                            {fmtExportCell(exportDays.row[l] as string | number)}
                           </td>
                         ))}
                         <td className="border border-wl-teal-muted/40 bg-wl-teal/15 px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
-                          {exportDays.row.total as number}
+                          {fmtFixed(exportDays.row.total as number, 2)}
                         </td>
                       </tr>
                     </tbody>
@@ -812,7 +838,7 @@ export default function App() {
             <div className="grid gap-6 lg:grid-cols-3">
               <Card title="Team median response">
                 <p className="font-display text-3xl font-bold text-wl-teal">
-                  {Math.round(teamMedian)}m
+                  {fmtInt(Math.round(teamMedian))}m
                 </p>
                 <p className="mt-1 text-xs text-wl-ink-muted">
                   All client–staff pairs in sample
