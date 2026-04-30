@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { fmtInt } from '../utils/format'
 
 function cn(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(' ')
@@ -67,7 +68,7 @@ export function FilterMultiSelect<T extends string>({
               .filter((o) => selected.includes(o.id))
               .map((o) => o.label)
               .join(', ')
-          : `${selected.length} selected`
+          : `${fmtInt(selected.length)} selected`
 
   return (
     <div ref={rootRef} className="relative" data-filter-menu={menuId}>

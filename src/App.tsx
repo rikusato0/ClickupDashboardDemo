@@ -841,7 +841,7 @@ export default function App() {
                   {fmtInt(Math.round(teamMedian))}m
                 </p>
                 <p className="mt-1 text-xs text-wl-ink-muted">
-                  All client–staff pairs in sample
+                  Across all client–staff pairs
                 </p>
               </Card>
               <Card title="Fastest quartile (staff)">
@@ -1099,11 +1099,14 @@ export default function App() {
                       />
                       <Tooltip
                         contentStyle={TOOLTIP_STYLE}
-                        formatter={(value: number, name: string) =>
-                          name === 'Team emails sent'
-                            ? fmtInt(Number(value))
-                            : fmtFixed(Number(value), 1)
-                        }
+                        formatter={(value, name) => {
+                          const v = Number(value ?? 0)
+                          const text =
+                            name === 'Team emails sent'
+                              ? fmtInt(v)
+                              : fmtFixed(v, 1)
+                          return [text, name]
+                        }}
                       />
                       <Legend />
                       <Line
@@ -1289,8 +1292,10 @@ export default function App() {
                   {onboardingState.find((o) => o.id === onboardingDetailId)
                     ?.stage ?? ''}{' '}
                   ·{' '}
-                  {onboardingState.find((o) => o.id === onboardingDetailId)
-                    ?.percentComplete ?? 0}
+                  {fmtInt(
+                    onboardingState.find((o) => o.id === onboardingDetailId)
+                      ?.percentComplete ?? 0,
+                  )}
                   % complete
                 </p>
               </div>
