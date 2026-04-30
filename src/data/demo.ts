@@ -1,4 +1,10 @@
-import { eachDayOfInterval, format, subDays, subWeeks } from 'date-fns'
+import {
+  eachDayOfInterval,
+  format,
+  parseISO,
+  subDays,
+  subWeeks,
+} from 'date-fns'
 
 export const TASK_TYPES = [
   'One-time',
@@ -87,6 +93,99 @@ export interface WeeklyClientInbound {
   clientId: string
   weekStart: string
   received: number
+}
+
+/**
+ * Communication-pattern taxonomy used to label inbound traffic from clients.
+ * "Ad hoc requests" replaces what was previously called "standard
+ * communication" — non-recurring one-off questions whose volume is itself
+ * a signal (when a client's ad-hoc bucket grows quickly the firm should
+ * consider promoting an item to a recurring service).
+ */
+export const COMMS_CATEGORIES = [
+  'Recurring requests',
+  'Seasonal events',
+  'Bottlenecks',
+  'Urgencies',
+  'Relationship notes',
+  'Ad hoc requests',
+] as const
+export type CommsCategory = (typeof COMMS_CATEGORIES)[number]
+
+export const COMMS_CATEGORY_COLORS: Record<CommsCategory, string> = {
+  'Recurring requests': '#06b6d4',
+  'Seasonal events': '#0891b2',
+  Bottlenecks: '#ff8500',
+  Urgencies: '#e11d48',
+  'Relationship notes': '#0e7490',
+  'Ad hoc requests': '#67e8f9',
+}
+
+export interface MonthlyPatternByClient {
+  clientId: string
+  /** ISO yyyy-MM */
+  month: string
+  category: CommsCategory
+  volume: number
+}
+
+export interface PatternTrend {
+  id: string
+  label: string
+  category: CommsCategory
+  /** 12 weekly counts, oldest-first. */
+  weeklyVolumes: number[]
+}
+
+export interface PatternSample {
+  patternId: string
+  fromContact: string
+  toStaff: string
+  date: string
+  snippet: string
+}
+
+export interface PredictedNeed {
+  id: string
+  clientId: string
+  /** yyyy-MM-dd */
+  dueDate: string
+  title: string
+  detail: string
+  /** 0..1 confidence emitted by the predictor. */
+  confidence: number
+  sourcePatternId: string | null
+}
+
+export interface SentimentBiweekly {
+  clientId: string
+  /** Last day of the bi-weekly window, yyyy-MM-dd. */
+  periodEnd: string
+  /** -1..+1 */
+  score: number
+  msgCount: number
+  topReason: string
+}
+
+export interface SentimentSampleSet {
+  clientId: string
+  periodEnd: string
+  reasons: string[]
+  excerpts: { fromName: string; date: string; snippet: string }[]
+}
+
+/**
+ * Firm-employee × client-contact sentiment so the UI can answer "Aaron at
+ * the client loves Eric on our side but is frustrated with Sam".
+ */
+export interface PairwiseSentiment {
+  clientId: string
+  contactId: string
+  staffId: string
+  /** -1..+1 */
+  score: number
+  msgCount: number
+  note: string
 }
 
 export interface OnboardingClient {
@@ -420,6 +519,322 @@ export const weeklyClientInboundEmails: WeeklyClientInbound[] = (() => {
         weekStart: ws,
         received: Math.max(0, base + drift),
       })
+    }
+  }
+  return out
+})()
+
+/** Top recurring/seasonal/etc named patterns the AI surfaces. */
+const PATTERN_TRENDS_DEFS: {
+  id: string
+  label: string
+  category: CommsCategory
+  baseline: number
+  growth: number
+}[] = [
+  { id: 'pat-stax', label: 'Sales-tax filing prep', category: 'Recurring requests', baseline: 22, growth: 0.5 },
+  { id: 'pat-bank', label: 'Bank-feed reconciliations', category: 'Recurring requests', baseline: 30, growth: -0.2 },
+  { id: 'pat-close', label: 'Month-end close support', category: 'Seasonal events', baseline: 18, growth: 1.2 },
+  { id: 'pat-1099', label: 'Year-end 1099 cleanup', category: 'Seasonal events', baseline: 8, growth: 0.4 },
+  { id: 'pat-payroll', label: 'Payroll provider bridge issues', category: 'Bottlenecks', baseline: 12, growth: 0.6 },
+  { id: 'pat-wire', label: 'Wire approval delays', category: 'Urgencies', baseline: 6, growth: 0.3 },
+  { id: 'pat-rel', label: 'Owner / ED relationship check-ins', category: 'Relationship notes', baseline: 10, growth: -0.1 },
+  { id: 'pat-adhoc', label: 'Random Q&A from contacts', category: 'Ad hoc requests', baseline: 28, growth: 0.8 },
+]
+
+export const patternTrends: PatternTrend[] = PATTERN_TRENDS_DEFS.map((p) => {
+  const rng = mulberry32(hashSeed(`pat-${p.id}`))
+  const weekly: number[] = []
+  for (let w = 0; w < 12; w++) {
+    const drift = w * p.growth
+    const noise = (rng() - 0.5) * (p.baseline * 0.4)
+    weekly.push(Math.max(0, Math.round(p.baseline + drift + noise)))
+  }
+  return { id: p.id, label: p.label, category: p.category, weeklyVolumes: weekly }
+})
+
+export const monthlyPatternsByClient: MonthlyPatternByClient[] = (() => {
+  const out: MonthlyPatternByClient[] = []
+  for (let m = 5; m >= 0; m--) {
+    const monthDate = subWeeks(demoEnd, m * 4)
+    const month = format(monthDate, 'yyyy-MM')
+    for (const c of clients) {
+      const rng = mulberry32(hashSeed(`mp-${c.id}-${month}`))
+      const heavy =
+        c.id === 'c1' || c.id === 'c2' || c.id === 'c4' || c.id === 'c7'
+      for (const cat of COMMS_CATEGORIES) {
+        let base =
+          (heavy ? 22 : 9) + Math.floor(rng() * (heavy ? 18 : 10))
+        if (cat === 'Urgencies' && (c.id === 'c2' || c.id === 'c8')) base += 6
+        if (cat === 'Recurring requests' && heavy) base += 4
+        if (cat === 'Ad hoc requests') base += Math.floor(rng() * 8)
+        out.push({ clientId: c.id, month, category: cat, volume: base })
+      }
+    }
+  }
+  return out
+})()
+
+const PATTERN_SAMPLE_SNIPPETS: Record<string, string[]> = {
+  'pat-stax': [
+    'Heads up — quarterly filing window opens next week. Want to sync on the latest figures?',
+    'Quick reminder: sales tax for Q1 is due April 30. Can we confirm the schedule?',
+    'Got the worksheet. Two line items look off vs last quarter, can you double-check?',
+  ],
+  'pat-bank': [
+    "Two transactions on the operating account aren't mapping — want me to forward the screenshots?",
+    "Bank feed dropped overnight. We're seeing duplicates — can you re-run the reconciliation?",
+    'Reconciled through Apr 25. Variance is $312, sourcing it now.',
+  ],
+  'pat-close': [
+    'May close kickoff — restricted fund reporting + event revenue coding will be the bigger lifts.',
+    'Need to lock the close calendar. Targeting Jun 5 — does that work for the team?',
+    'Two journal entries to review before we cut the package.',
+  ],
+  'pat-1099': [
+    'Vendor list updated, please regenerate corrections for Acme Co and Cedar Vendors.',
+    '1099-NEC for the contractor pool needs the new TIN before we file.',
+    "Waiting on three W-9s — will forward as they come in.",
+  ],
+  'pat-payroll': [
+    'Payroll bridge throwing a 502 again. Third time this month.',
+    'Need someone to look at the pay-period mapping — hours are duplicating.',
+    "Provider says it's on our side. Can you get on a call with them?",
+  ],
+  'pat-wire': [
+    'Wire approval is sitting in your queue — vendor needs payment by EOD.',
+    'Urgent: the EUR transfer for the Berlin office is timing out.',
+    "Approver is OOO — what's the fallback workflow?",
+  ],
+  'pat-rel': [
+    'Loved the proactive board package — saved me a few hours this week.',
+    'Just a check-in — anything we should be doing differently from your side?',
+    'Thanks for the heads up on the cash position. Owner appreciated the call.',
+  ],
+  'pat-adhoc': [
+    'Random one — does the policy memo need a sign-off from legal first?',
+    'Question on expense classification for the conference last week.',
+    'Anyone know how to update the SSO policy? Asking for our HR person.',
+  ],
+}
+
+export const patternSamples: PatternSample[] = (() => {
+  const out: PatternSample[] = []
+  for (const p of patternTrends) {
+    const rng = mulberry32(hashSeed(`ps-${p.id}`))
+    const snippets = PATTERN_SAMPLE_SNIPPETS[p.id] ?? []
+    for (const snippet of snippets) {
+      const contact =
+        clientContacts[Math.floor(rng() * clientContacts.length)]!
+      const st = staff[Math.floor(rng() * 6)]!
+      const daysAgo = 1 + Math.floor(rng() * 42)
+      out.push({
+        patternId: p.id,
+        fromContact: contact.name,
+        toStaff: st.name,
+        date: format(subDays(demoEnd, daysAgo), 'yyyy-MM-dd'),
+        snippet,
+      })
+    }
+  }
+  return out
+})()
+
+const PREDICTED_NEEDS_DEFS: {
+  id: string
+  clientId: string
+  daysAhead: number
+  title: string
+  detail: string
+  confidence: number
+  sourcePatternId: string | null
+}[] = [
+  { id: 'pn1', clientId: 'c1', daysAhead: 38, title: 'May close', detail: 'Event revenue coding + restricted fund reporting due Jun 5.', confidence: 0.92, sourcePatternId: 'pat-close' },
+  { id: 'pn2', clientId: 'c5', daysAhead: 34, title: 'Q2 close kickoff package', detail: 'SaaS revenue rec checklist; deferred revenue rollforward.', confidence: 0.84, sourcePatternId: 'pat-close' },
+  { id: 'pn3', clientId: 'c4', daysAhead: 17, title: 'Quarterly sales-tax filing', detail: 'Manufacturing carve-outs always need a second pass.', confidence: 0.95, sourcePatternId: 'pat-stax' },
+  { id: 'pn4', clientId: 'c8', daysAhead: 24, title: '1099 corrections review', detail: 'Two contractors flagged with new TINs since last cycle.', confidence: 0.78, sourcePatternId: 'pat-1099' },
+  { id: 'pn5', clientId: 'c4', daysAhead: 4, title: 'Payroll bridge weekly sync', detail: 'Recurring 502s — schedule recurring Mon 10am call.', confidence: 0.88, sourcePatternId: 'pat-payroll' },
+  { id: 'pn6', clientId: 'c3', daysAhead: 32, title: 'Vendor 1099 cleanup', detail: 'Retail vendor list expanded — pre-clean now to avoid Q4 crunch.', confidence: 0.71, sourcePatternId: 'pat-1099' },
+  { id: 'pn7', clientId: 'c10', daysAhead: 43, title: 'Restricted fund grant report', detail: 'Education-grant tranche reporting due to state.', confidence: 0.83, sourcePatternId: 'pat-close' },
+  { id: 'pn8', clientId: 'c1', daysAhead: 30, title: 'Year-end audit prep readiness check', detail: 'External auditor kickoff in early Q3 — gather PBC list.', confidence: 0.74, sourcePatternId: null },
+  { id: 'pn9', clientId: 'c2', daysAhead: 40, title: 'Wire-approval workflow audit', detail: 'Three urgent wires last month — propose dual-signer flow.', confidence: 0.68, sourcePatternId: 'pat-wire' },
+  { id: 'pn10', clientId: 'c7', daysAhead: 36, title: 'Board package — quarterly', detail: 'Compliance officer typically asks for footnotes 2d before send.', confidence: 0.82, sourcePatternId: 'pat-rel' },
+  { id: 'pn11', clientId: 'c6', daysAhead: 12, title: 'Multi-property roll-up', detail: 'Hospitality group adds Q3 properties — schedule new GL mapping.', confidence: 0.66, sourcePatternId: null },
+  { id: 'pn12', clientId: 'c9', daysAhead: 20, title: 'Owner relationship touch-base', detail: 'Owner sentiment trending neutral — proactive call recommended.', confidence: 0.61, sourcePatternId: 'pat-rel' },
+]
+
+export const predictedClientNeeds: PredictedNeed[] = PREDICTED_NEEDS_DEFS.map(
+  (p) => ({
+    id: p.id,
+    clientId: p.clientId,
+    dueDate: format(subDays(demoEnd, -p.daysAhead), 'yyyy-MM-dd'),
+    title: p.title,
+    detail: p.detail,
+    confidence: p.confidence,
+    sourcePatternId: p.sourcePatternId,
+  }),
+)
+
+const SENT_REASONS_POOL = [
+  '4 reminders sent by client without staff reply in last 14 days',
+  'Two escalation threads routed to Executive Director',
+  'Response time exceeded 3h on critical-priority threads',
+  'Multiple staff on copy without action',
+  'Positive language ("thanks", "great work") in 3 of 5 threads',
+  'Client expressed appreciation for proactive close timing',
+  'Bottleneck on payroll bridge mentioned 3 times',
+  'Owner asked the same question twice in one week',
+  'Wire approval delay flagged as a recurring concern',
+  'Praised proactive board package delivery',
+  'AP specialist sentiment dipped after 2 missed deadlines',
+  'Long thread (> 20 replies) — sign of stuck workflow',
+]
+
+const SENT_EXCERPTS_POOL = [
+  'Hey team — checking in on the May close. Can we hit the 5th?',
+  "Frustrated that this is the 3rd time we've asked about the wire approval.",
+  'Thanks for the heads up on the bank feed issue, super helpful.',
+  'Can we please get a status update on the 1099 corrections by EOD?',
+  'Loved the proactive board package — saved me hours.',
+  'This keeps falling through the cracks. Please loop me in.',
+  "Quick question on payroll routing — when's the best time to chat?",
+  'Great work on the close — 2 days ahead of schedule.',
+  'Why is this still open? I escalated this last week.',
+  'Appreciate the proactive email about the cash position.',
+]
+
+export const sentimentBiweekly: SentimentBiweekly[] = (() => {
+  const out: SentimentBiweekly[] = []
+  for (let p = 11; p >= 0; p--) {
+    const periodEnd = format(subWeeks(demoEnd, p * 2), 'yyyy-MM-dd')
+    for (const c of clients) {
+      const rng = mulberry32(hashSeed(`sb-${c.id}-${periodEnd}`))
+      const slope =
+        c.id === 'c2'
+          ? -0.04
+          : c.id === 'c4'
+            ? -0.05
+            : c.id === 'c5'
+              ? 0.06
+              : c.id === 'c7'
+                ? 0.03
+                : 0
+      const baseline =
+        c.id === 'c2'
+          ? 0.35
+          : c.id === 'c4'
+            ? 0.2
+            : c.id === 'c8'
+              ? -0.2
+              : c.id === 'c5'
+                ? -0.05
+                : 0.1
+      const score = Math.max(
+        -0.95,
+        Math.min(
+          0.95,
+          baseline + slope * (11 - p) + (rng() - 0.5) * 0.18,
+        ),
+      )
+      const msgCount = 18 + Math.floor(rng() * 64)
+      const topReason =
+        SENT_REASONS_POOL[Math.floor(rng() * SENT_REASONS_POOL.length)]!
+      out.push({
+        clientId: c.id,
+        periodEnd,
+        score: Math.round(score * 100) / 100,
+        msgCount,
+        topReason,
+      })
+    }
+  }
+  return out
+})()
+
+export const sentimentSampleSets: SentimentSampleSet[] = sentimentBiweekly.map(
+  (row) => {
+    const rng = mulberry32(hashSeed(`ss-${row.clientId}-${row.periodEnd}`))
+    const reasonsPool = [...SENT_REASONS_POOL]
+    const reasons: string[] = []
+    while (reasons.length < 3 && reasonsPool.length > 0) {
+      const idx = Math.floor(rng() * reasonsPool.length)
+      reasons.push(reasonsPool[idx]!)
+      reasonsPool.splice(idx, 1)
+    }
+    const excerptsPool = [...SENT_EXCERPTS_POOL]
+    const clientPeople = clientContacts.filter(
+      (c) => c.clientId === row.clientId,
+    )
+    const excerpts: { fromName: string; date: string; snippet: string }[] = []
+    while (excerpts.length < 3 && excerptsPool.length > 0) {
+      const idx = Math.floor(rng() * excerptsPool.length)
+      const contact =
+        clientPeople[Math.floor(rng() * Math.max(1, clientPeople.length))] ??
+        clientContacts[0]!
+      const daysAgo = Math.floor(rng() * 13) + 1
+      excerpts.push({
+        fromName: contact.name,
+        date: format(
+          subDays(parseISO(row.periodEnd), daysAgo),
+          'yyyy-MM-dd',
+        ),
+        snippet: excerptsPool[idx]!,
+      })
+      excerptsPool.splice(idx, 1)
+    }
+    return {
+      clientId: row.clientId,
+      periodEnd: row.periodEnd,
+      reasons,
+      excerpts,
+    }
+  },
+)
+
+export const pairwiseSentiment: PairwiseSentiment[] = (() => {
+  const out: PairwiseSentiment[] = []
+  for (const c of clients) {
+    const contacts = clientContacts.filter((x) => x.clientId === c.id)
+    const picks = staff.slice(0, 5)
+    for (const contact of contacts) {
+      for (const st of picks) {
+        const rng = mulberry32(hashSeed(`pw-${contact.id}-${st.id}`))
+        const staffBias =
+          st.id === 'e1'
+            ? 0.2
+            : st.id === 'e2'
+              ? -0.15
+              : st.id === 'e5'
+                ? 0.12
+                : 0
+        const contactBias =
+          contact.priority === 'critical'
+            ? -0.1
+            : contact.priority === 'low'
+              ? 0.1
+              : 0
+        const score = Math.max(
+          -0.95,
+          Math.min(0.95, staffBias + contactBias + (rng() - 0.5) * 0.7),
+        )
+        const msgCount = 4 + Math.floor(rng() * 22)
+        const firstName = contact.name.split(' ')[0]
+        const staffFirst = st.name.split(' ')[0]
+        const note =
+          score > 0.5
+            ? `${firstName} responds quickly to ${staffFirst} and uses positive language.`
+            : score < -0.4
+              ? `${firstName} has reminded ${staffFirst} multiple times — escalation risk.`
+              : `Mostly transactional, low-volume thread between ${firstName} and ${staffFirst}.`
+        out.push({
+          clientId: c.id,
+          contactId: contact.id,
+          staffId: st.id,
+          score: Math.round(score * 100) / 100,
+          msgCount,
+          note,
+        })
+      }
     }
   }
   return out

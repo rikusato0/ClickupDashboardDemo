@@ -14,20 +14,33 @@ import {
   YAxis,
 } from 'recharts'
 import {
+  Activity,
+  Angry,
   Bell,
+  BookUser,
   Building2,
+  CalendarClock,
   ChevronRight,
   Clock,
   Download,
+  Frown,
   HeartPulse,
   Inbox,
+  Meh,
+  Network,
   Rocket,
+  Smile,
+  Sparkles,
   TrendingDown,
   TrendingUp,
   Users,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
+  COMMS_CATEGORIES,
+  COMMS_CATEGORY_COLORS,
+  type CommsCategory,
   type OnboardingClient,
   type TaskType,
   TASK_TYPES,
@@ -36,9 +49,16 @@ import {
   dailyResponseTimes,
   getMockDashboardSnapshot,
   getTeamMedianResponseMinutes,
+  monthlyPatternsByClient,
   onboardingDetailsById,
+  pairwiseSentiment,
+  patternSamples,
+  patternTrends,
+  predictedClientNeeds,
   responseByContact,
+  sentimentBiweekly,
   sentimentCells,
+  sentimentSampleSets,
   staff,
   timeEntries,
   type TimeEntry,
@@ -48,19 +68,21 @@ import {
 import { BrandLogo } from './components/BrandLogo'
 import { DateRangePicker } from './components/DateRangePicker'
 import { FilterMultiSelect } from './components/FilterMultiSelect'
-import { eachDayOfInterval, format, parseISO } from 'date-fns'
+import { eachDayOfInterval, format, parseISO, subDays } from 'date-fns'
 import { fmtExportCell, fmtFixed, fmtInt, fmtMinutes } from './utils/format'
 
 type NavId =
   | 'timesheets'
   | 'comms'
   | 'sentiment'
+  | 'profiles'
   | 'onboarding'
 
 const NAV: { id: NavId; label: string; icon: typeof Clock }[] = [
   { id: 'timesheets', label: 'Timesheets', icon: Clock },
   { id: 'comms', label: 'Communications analysis', icon: Inbox },
   { id: 'sentiment', label: 'Client sentiment', icon: HeartPulse },
+  { id: 'profiles', label: 'Client profiles', icon: BookUser },
   { id: 'onboarding', label: 'Client onboarding', icon: Rocket },
 ]
 
@@ -122,6 +144,65 @@ const SEVERITY_FILL: Record<RespSeverity, string> = {
   fast: '#10b981',
   warning: '#f59e0b',
   critical: '#ff8500',
+}
+
+/**
+ * Sentiment quantization. The transcript: client wants "happy / meh / sad /
+ * frustrated" faces instead of raw numeric scores so reports are scannable
+ * at a glance.
+ */
+type SentLevel = 'happy' | 'meh' | 'sad' | 'frustrated'
+
+function sentimentLevel(score: number): SentLevel {
+  if (score >= 0.4) return 'happy'
+  if (score >= 0) return 'meh'
+  if (score >= -0.4) return 'sad'
+  return 'frustrated'
+}
+
+const SENT_STYLE: Record<
+  SentLevel,
+  {
+    Icon: LucideIcon
+    label: string
+    text: string
+    bg: string
+    border: string
+    fill: string
+  }
+> = {
+  happy: {
+    Icon: Smile,
+    label: 'Happy',
+    text: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    fill: '#10b981',
+  },
+  meh: {
+    Icon: Meh,
+    label: 'Meh',
+    text: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    fill: '#f59e0b',
+  },
+  sad: {
+    Icon: Frown,
+    label: 'Sad',
+    text: 'text-orange-600',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    fill: '#fb923c',
+  },
+  frustrated: {
+    Icon: Angry,
+    label: 'Frustrated',
+    text: 'text-rose-600',
+    bg: 'bg-rose-50',
+    border: 'border-rose-200',
+    fill: '#e11d48',
+  },
 }
 
 function cn(...parts: (string | false | undefined)[]) {
@@ -295,12 +376,22 @@ export default function App() {
     'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export'
   >('overview')
   const [exportStaffIds, setExportStaffIds] = useState<string[] | null>(null)
-  const [commsSub, setCommsSub] = useState<'response' | 'email'>('response')
+  const [commsSub, setCommsSub] = useState<'patterns' | 'response' | 'email'>(
+    'patterns',
+  )
+  const [patternsClientId, setPatternsClientId] = useState<string>('c1')
+  const [patternDrillId, setPatternDrillId] = useState<string | null>(null)
   const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
   const [respAlertDirection, setRespAlertDirection] = useState<'above' | 'below'>(
     'above',
   )
   const [respAlertThreshold, setRespAlertThreshold] = useState<number>(90)
+  const [sentimentClientId, setSentimentClientId] = useState<string>('c4')
+  const [sentimentDrill, setSentimentDrill] = useState<{
+    clientId: string
+    periodEnd: string
+  } | null>(null)
+  const [profileClientId, setProfileClientId] = useState<string>('c1')
   const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
     () =>
       getMockDashboardSnapshot().onboardingClients.map((c) => ({
@@ -564,6 +655,78 @@ export default function App() {
       .sort((a, b) => b.received - a.received)
   }, [inboundWeekly])
 
+  /** Communications-pattern memos. */
+  const patternMixTotals = useMemo(() => {
+    const totals = new Map<CommsCategory, number>()
+    for (const p of patternTrends) {
+      const sum = p.weeklyVolumes.reduce((a, x) => a + x, 0)
+      totals.set(p.category, (totals.get(p.category) ?? 0) + sum)
+    }
+    return COMMS_CATEGORIES.map((cat) => ({
+      category: cat,
+      total: totals.get(cat) ?? 0,
+    }))
+  }, [])
+
+  const monthlyPatternsForClient = useMemo(() => {
+    const months = [
+      ...new Set(monthlyPatternsByClient.map((m) => m.month)),
+    ].sort()
+    return months.map((month) => {
+      const row: Record<string, string | number> = { month }
+      for (const cat of COMMS_CATEGORIES) {
+        const cell = monthlyPatternsByClient.find(
+          (m) =>
+            m.clientId === patternsClientId &&
+            m.month === month &&
+            m.category === cat,
+        )
+        row[cat] = cell?.volume ?? 0
+      }
+      return row
+    })
+  }, [patternsClientId])
+
+  const upcomingPredictedNeeds = useMemo(() => {
+    return [...predictedClientNeeds].sort((a, b) =>
+      a.dueDate.localeCompare(b.dueDate),
+    )
+  }, [])
+
+  const patternDrill = useMemo(() => {
+    if (!patternDrillId) return null
+    const trend = patternTrends.find((p) => p.id === patternDrillId)
+    if (!trend) return null
+    const samples = patternSamples.filter((s) => s.patternId === patternDrillId)
+    return { trend, samples }
+  }, [patternDrillId])
+
+  /** Sentiment memos. */
+  const sentimentTrend = useMemo(() => {
+    return sentimentBiweekly
+      .filter((r) => r.clientId === sentimentClientId)
+      .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
+  }, [sentimentClientId])
+
+  const sentimentDrillData = useMemo(() => {
+    if (!sentimentDrill) return null
+    const cell = sentimentBiweekly.find(
+      (s) =>
+        s.clientId === sentimentDrill.clientId &&
+        s.periodEnd === sentimentDrill.periodEnd,
+    )
+    if (!cell) return null
+    const samples = sentimentSampleSets.find(
+      (s) =>
+        s.clientId === sentimentDrill.clientId &&
+        s.periodEnd === sentimentDrill.periodEnd,
+    )
+    const pairs = pairwiseSentiment.filter(
+      (p) => p.clientId === sentimentDrill.clientId,
+    )
+    return { cell, samples, pairs }
+  }, [sentimentDrill])
+
   const emailChartData = useMemo(() => {
     const weeks = [...new Set(weeklyEmailVolume.map((w) => w.weekStart))].sort()
     return weeks.map((ws) => {
@@ -615,6 +778,24 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onboardingDetailId])
+
+  useEffect(() => {
+    if (!patternDrillId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPatternDrillId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [patternDrillId])
+
+  useEffect(() => {
+    if (!sentimentDrill) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSentimentDrill(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sentimentDrill])
 
   return (
     <div className="flex min-h-svh flex-col bg-wl-page text-wl-ink">
@@ -1132,11 +1313,359 @@ export default function App() {
           </div>
         )}
 
+        {nav === 'comms' && commsSub === 'patterns' && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['patterns', 'Communications patterns'],
+                  ['response', 'Response time'],
+                  ['email', 'Email volume'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCommsSub(id)}
+                  className={cn(
+                    'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
+                    commsSub === id
+                      ? 'bg-wl-teal-soft text-wl-teal-muted'
+                      : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card
+                title="Pattern mix — last 12 weeks"
+                subtitle="Where the firm's inbound volume actually goes."
+              >
+                <div className="space-y-2">
+                  {(() => {
+                    const total = patternMixTotals.reduce(
+                      (a, x) => a + x.total,
+                      0,
+                    )
+                    const max = Math.max(
+                      ...patternMixTotals.map((x) => x.total),
+                      1,
+                    )
+                    return patternMixTotals
+                      .slice()
+                      .sort((a, b) => b.total - a.total)
+                      .map((row) => {
+                        const pct = total ? (row.total / total) * 100 : 0
+                        const widthPct = (row.total / max) * 100
+                        return (
+                          <div
+                            key={row.category}
+                            className="rounded-lg border border-wl-surface bg-wl-page px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                                  style={{
+                                    background:
+                                      COMMS_CATEGORY_COLORS[row.category],
+                                  }}
+                                  aria-hidden
+                                />
+                                <span className="truncate font-medium text-wl-ink">
+                                  {row.category}
+                                </span>
+                              </span>
+                              <span className="shrink-0 tabular-nums text-wl-ink-muted">
+                                <span className="font-semibold text-wl-ink">
+                                  {fmtInt(row.total)}
+                                </span>{' '}
+                                · {fmtFixed(pct, 1)}%
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-wl-surface">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${widthPct}%`,
+                                  background:
+                                    COMMS_CATEGORY_COLORS[row.category],
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })
+                  })()}
+                </div>
+                <p className="mt-3 text-[11px] text-wl-ink-muted">
+                  When "Ad hoc requests" grows fast, that's a candidate to
+                  promote to a recurring engagement.
+                </p>
+              </Card>
+
+              <Card
+                title="Recurring patterns — frequency over time"
+                subtitle="Click any row to see why it was tagged this way."
+              >
+                <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {patternTrends
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        b.weeklyVolumes.reduce((x, y) => x + y, 0) -
+                        a.weeklyVolumes.reduce((x, y) => x + y, 0),
+                    )
+                    .map((p) => {
+                      const total = p.weeklyVolumes.reduce(
+                        (x, y) => x + y,
+                        0,
+                      )
+                      const last = p.weeklyVolumes.slice(-4).reduce(
+                        (x, y) => x + y,
+                        0,
+                      )
+                      const prev = p.weeklyVolumes
+                        .slice(-8, -4)
+                        .reduce((x, y) => x + y, 0)
+                      const delta = prev > 0 ? (last - prev) / prev : 0
+                      const max = Math.max(...p.weeklyVolumes, 1)
+                      return (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => setPatternDrillId(p.id)}
+                            className="flex w-full items-center gap-3 rounded-xl border border-wl-surface bg-wl-page px-3 py-2 text-left transition hover:border-wl-teal/40 hover:bg-wl-teal-soft/40"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-sm"
+                                  style={{
+                                    background:
+                                      COMMS_CATEGORY_COLORS[p.category],
+                                  }}
+                                  aria-hidden
+                                />
+                                <span className="truncate text-sm font-medium text-wl-ink">
+                                  {p.label}
+                                </span>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1">
+                                {p.weeklyVolumes.map((v, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-block w-1 rounded-sm"
+                                    style={{
+                                      height: `${Math.max(2, (v / max) * 22)}px`,
+                                      background:
+                                        COMMS_CATEGORY_COLORS[p.category],
+                                      opacity: 0.55,
+                                    }}
+                                    aria-hidden
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className="text-sm font-semibold tabular-nums text-wl-ink">
+                                {fmtInt(total)}
+                              </div>
+                              <div
+                                className={cn(
+                                  'inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums',
+                                  delta > 0.05
+                                    ? 'text-wl-orange'
+                                    : delta < -0.05
+                                      ? 'text-emerald-600'
+                                      : 'text-wl-ink-muted',
+                                )}
+                              >
+                                {delta > 0.05 && (
+                                  <TrendingUp className="h-3 w-3" />
+                                )}
+                                {delta < -0.05 && (
+                                  <TrendingDown className="h-3 w-3" />
+                                )}
+                                {Math.abs(delta * 100) >= 1
+                                  ? `${fmtFixed(Math.abs(delta) * 100, 0)}%`
+                                  : 'flat'}
+                              </div>
+                            </div>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-wl-ink-muted" />
+                          </button>
+                        </li>
+                      )
+                    })}
+                </ul>
+              </Card>
+            </div>
+
+            <Card
+              title="Per-client monthly breakdown"
+              subtitle="How a single client's inbound mix has moved across the last 6 months."
+              action={
+                <select
+                  value={patternsClientId}
+                  onChange={(e) => setPatternsClientId(e.target.value)}
+                  className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
+                  aria-label="Client"
+                >
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              }
+            >
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={monthlyPatternsForClient}
+                    margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                    <XAxis
+                      dataKey="month"
+                      tick={CHART_TICK_SM}
+                      tickFormatter={(d) =>
+                        format(parseISO(`${String(d)}-01`), 'MMM')
+                      }
+                    />
+                    <YAxis
+                      tick={CHART_TICK}
+                      tickFormatter={(v) => fmtInt(Number(v))}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      labelFormatter={(d) =>
+                        format(parseISO(`${String(d)}-01`), 'MMMM yyyy')
+                      }
+                      formatter={(value, name) => [
+                        fmtInt(Number(value)),
+                        name,
+                      ]}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={32}
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                    {COMMS_CATEGORIES.map((cat) => (
+                      <Bar
+                        key={cat}
+                        dataKey={cat}
+                        stackId="a"
+                        fill={COMMS_CATEGORY_COLORS[cat]}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            <Card
+              title="AI-predicted upcoming needs"
+              subtitle="Items the predictor expects clients to need soon, ranked by due date."
+            >
+              <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+                {upcomingPredictedNeeds.map((n) => {
+                  const client = clients.find((c) => c.id === n.clientId)
+                  const due = parseISO(n.dueDate)
+                  const remindOn = format(subDays(due, 1), 'MMM d')
+                  const pat =
+                    patternTrends.find((p) => p.id === n.sourcePatternId) ??
+                    null
+                  const conf = Math.round(n.confidence * 100)
+                  return (
+                    <li
+                      key={n.id}
+                      className="rounded-xl border border-wl-surface bg-wl-page px-3 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wl-teal-soft text-wl-teal-muted">
+                              <Sparkles className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="font-semibold text-wl-ink">
+                              {n.title}
+                            </span>
+                            <span className="text-xs text-wl-ink-muted">
+                              {client?.name}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-wl-ink-muted">
+                            {n.detail}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-wl-ink-muted">
+                            <span className="inline-flex items-center gap-1">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Due{' '}
+                              <span className="font-semibold text-wl-ink">
+                                {format(due, 'MMM d, yyyy')}
+                              </span>
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Bell className="h-3.5 w-3.5 text-wl-teal" />
+                              Reminder email scheduled for{' '}
+                              <span className="font-semibold text-wl-teal-muted">
+                                {remindOn}
+                              </span>
+                            </span>
+                            {pat && (
+                              <button
+                                type="button"
+                                onClick={() => setPatternDrillId(pat.id)}
+                                className="inline-flex items-center gap-1 text-wl-teal hover:underline"
+                              >
+                                <Activity className="h-3.5 w-3.5" />
+                                Source pattern · {pat.label}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-wl-ink-muted">
+                            Confidence
+                          </div>
+                          <div
+                            className={cn(
+                              'text-base font-bold tabular-nums',
+                              conf >= 85
+                                ? 'text-emerald-600'
+                                : conf >= 70
+                                  ? 'text-amber-600'
+                                  : 'text-wl-ink-muted',
+                            )}
+                          >
+                            {fmtInt(conf)}%
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="mt-3 text-[11px] text-wl-ink-muted">
+                Demo only — reminders aren't actually being sent. Hook this up
+                to your firm's notification service when ready.
+              </p>
+            </Card>
+          </div>
+        )}
+
         {nav === 'comms' && commsSub === 'response' && (
           <div className="space-y-6">
             <div className="flex flex-wrap gap-2">
               {(
                 [
+                  ['patterns', 'Communications patterns'],
                   ['response', 'Response time'],
                   ['email', 'Email volume'],
                 ] as const
@@ -1784,6 +2313,7 @@ export default function App() {
             <div className="flex flex-wrap gap-2">
               {(
                 [
+                  ['patterns', 'Communications patterns'],
                   ['response', 'Response time'],
                   ['email', 'Email volume'],
                 ] as const
@@ -2082,6 +2612,327 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {patternDrillId != null && patternDrill && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-wl-ink/40 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setPatternDrillId(null)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pattern-drill-title"
+            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-wl-card shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-wl-surface px-5 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-sm"
+                    style={{
+                      background:
+                        COMMS_CATEGORY_COLORS[patternDrill.trend.category],
+                    }}
+                    aria-hidden
+                  />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                    {patternDrill.trend.category}
+                  </span>
+                </div>
+                <h3
+                  id="pattern-drill-title"
+                  className="mt-1 text-lg font-bold text-wl-ink"
+                >
+                  {patternDrill.trend.label}
+                </h3>
+                <p className="mt-0.5 text-xs text-wl-ink-muted">
+                  Last 12 weeks ·{' '}
+                  {fmtInt(
+                    patternDrill.trend.weeklyVolumes.reduce(
+                      (a, x) => a + x,
+                      0,
+                    ),
+                  )}{' '}
+                  messages tagged
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPatternDrillId(null)}
+                aria-label="Close"
+                className="rounded-xl p-2 text-wl-ink-muted transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                  Why this pattern was tagged
+                </h4>
+                <p className="mt-2 rounded-xl border border-wl-surface bg-wl-page px-3 py-3 text-sm text-wl-ink">
+                  The classifier flagged threads with subject lines and body
+                  language matching the{' '}
+                  <span className="font-semibold">
+                    {patternDrill.trend.label.toLowerCase()}
+                  </span>{' '}
+                  template. Demo placeholder — production text will surface
+                  the AI's exact reasoning + classification confidence.
+                </p>
+              </div>
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                  Sample messages ({patternDrill.samples.length})
+                </h4>
+                <ul className="mt-2 space-y-2">
+                  {patternDrill.samples.map((s, i) => (
+                    <li
+                      key={i}
+                      className="rounded-xl border border-wl-surface bg-wl-page px-3 py-2"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-wl-ink-muted">
+                        <span>
+                          <span className="font-semibold text-wl-ink">
+                            {s.fromContact}
+                          </span>{' '}
+                          → {s.toStaff}
+                        </span>
+                        <span>
+                          {format(parseISO(s.date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-wl-ink">{s.snippet}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-xl border border-dashed border-wl-teal/40 bg-wl-teal-soft/30 px-3 py-3 text-xs text-wl-teal-muted">
+                <strong className="text-wl-teal">Suggested action:</strong>{' '}
+                If this pattern keeps growing in the "Ad hoc requests"
+                bucket, consider promoting it to a recurring engagement so
+                the firm bills it predictably.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sentimentDrill != null && sentimentDrillData && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-wl-ink/40 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setSentimentDrill(null)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sentiment-drill-title"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-wl-card shadow-2xl"
+          >
+            {(() => {
+              const { cell, samples, pairs } = sentimentDrillData
+              const lvl = sentimentLevel(cell.score)
+              const style = SENT_STYLE[lvl]
+              const Icon = style.Icon
+              const client = clients.find((c) => c.id === cell.clientId)
+              const startDate = format(
+                subDays(parseISO(cell.periodEnd), 13),
+                'MMM d',
+              )
+              const endDate = format(parseISO(cell.periodEnd), 'MMM d, yyyy')
+              const clientStaff = staff.slice(0, 5)
+              const clientPeople = clientContacts.filter(
+                (c) => c.clientId === cell.clientId,
+              )
+              return (
+                <>
+                  <div className="flex items-start justify-between gap-3 border-b border-wl-surface px-5 py-4">
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                        Sentiment analysis profile
+                      </span>
+                      <h3
+                        id="sentiment-drill-title"
+                        className="mt-1 flex flex-wrap items-center gap-3 text-lg font-bold text-wl-ink"
+                      >
+                        {client?.name}
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide',
+                            style.bg,
+                            style.border,
+                            style.text,
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {style.label}
+                        </span>
+                      </h3>
+                      <p className="mt-0.5 text-xs text-wl-ink-muted">
+                        Window {startDate} — {endDate} ·{' '}
+                        {fmtInt(cell.msgCount)} messages analyzed
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSentimentDrill(null)}
+                      aria-label="Close"
+                      className="rounded-xl p-2 text-wl-ink-muted transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                    <div>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                        Why this score
+                      </h4>
+                      <ul className="mt-2 space-y-2">
+                        {(samples?.reasons ?? [cell.topReason]).map((r, i) => (
+                          <li
+                            key={i}
+                            className="rounded-xl border border-wl-surface bg-wl-page px-3 py-2 text-sm text-wl-ink"
+                          >
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                        Sample messages
+                      </h4>
+                      <ul className="mt-2 space-y-2">
+                        {(samples?.excerpts ?? []).map((x, i) => (
+                          <li
+                            key={i}
+                            className="rounded-xl border border-wl-surface bg-wl-page px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between text-[11px] text-wl-ink-muted">
+                              <span className="font-semibold text-wl-ink">
+                                {x.fromName}
+                              </span>
+                              <span>
+                                {format(parseISO(x.date), 'MMM d, yyyy')}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-wl-ink">
+                              {x.snippet}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Network className="h-3.5 w-3.5" />
+                          Person-to-person sentiment
+                        </span>
+                      </h4>
+                      <p className="mt-1 text-xs text-wl-ink-muted">
+                        Each cell shows how the client contact feels
+                        interacting with that staff member.
+                      </p>
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="min-w-full border-collapse text-xs">
+                          <thead>
+                            <tr>
+                              <th className="border border-wl-surface bg-wl-page px-2 py-2 text-left font-semibold text-wl-ink-muted">
+                                Client contact ↓ · Staff →
+                              </th>
+                              {clientStaff.map((st) => (
+                                <th
+                                  key={st.id}
+                                  className="border border-wl-surface bg-wl-page px-2 py-2 text-center font-semibold text-wl-ink"
+                                  title={st.name}
+                                >
+                                  {st.initials}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {clientPeople.map((person) => (
+                              <tr key={person.id}>
+                                <td className="border border-wl-surface bg-wl-page px-2 py-2 font-medium text-wl-ink">
+                                  <div className="truncate">{person.name}</div>
+                                  <div className="truncate text-[10px] text-wl-ink-muted">
+                                    {person.role}
+                                  </div>
+                                </td>
+                                {clientStaff.map((st) => {
+                                  const pair = pairs.find(
+                                    (p) =>
+                                      p.contactId === person.id &&
+                                      p.staffId === st.id,
+                                  )
+                                  if (!pair) {
+                                    return (
+                                      <td
+                                        key={st.id}
+                                        className="border border-wl-surface bg-wl-page px-2 py-2 text-center text-wl-ink-muted"
+                                      >
+                                        —
+                                      </td>
+                                    )
+                                  }
+                                  const pl = sentimentLevel(pair.score)
+                                  const ps = SENT_STYLE[pl]
+                                  const PIcon = ps.Icon
+                                  return (
+                                    <td
+                                      key={st.id}
+                                      className={cn(
+                                        'border border-wl-surface px-2 py-2 text-center',
+                                        ps.bg,
+                                      )}
+                                      title={pair.note}
+                                    >
+                                      <PIcon
+                                        className={cn(
+                                          'mx-auto h-4 w-4',
+                                          ps.text,
+                                        )}
+                                      />
+                                      <div className="mt-0.5 text-[10px] text-wl-ink-muted">
+                                        {fmtInt(pair.msgCount)}
+                                      </div>
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="mt-2 text-[11px] text-wl-ink-muted">
+                        Hover any cell for the AI's note on that
+                        relationship.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-dashed border-wl-teal/40 bg-wl-teal-soft/30 px-3 py-3 text-xs text-wl-teal-muted">
+                      <strong className="text-wl-teal">
+                        Suggested next steps:
+                      </strong>{' '}
+                      Schedule a check-in with the client lead;
+                      reassign threads where the matrix shows red cells.
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
 
       {onboardingDetailId != null && onboardingDetail && (
         <div

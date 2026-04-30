@@ -3,13 +3,23 @@
  * replace imports with a fetch + the same TypeScript shapes.
  */
 export {
+  COMMS_CATEGORIES,
+  COMMS_CATEGORY_COLORS,
   TASK_TYPES,
   type Client,
   type ClientContact,
+  type CommsCategory,
   type DailyResponseTime,
+  type MonthlyPatternByClient,
   type OnboardingClient,
+  type PairwiseSentiment,
+  type PatternSample,
+  type PatternTrend,
+  type PredictedNeed,
   type ResponseSample,
+  type SentimentBiweekly,
   type SentimentCell,
+  type SentimentSampleSet,
   type Staff,
   type TaskType,
   type TimeEntry,
@@ -19,9 +29,16 @@ export {
   clients,
   dailyResponseTimes,
   demoDateRange,
+  monthlyPatternsByClient,
   onboardingClients,
+  pairwiseSentiment,
+  patternSamples,
+  patternTrends,
+  predictedClientNeeds,
   responseByContact,
+  sentimentBiweekly,
   sentimentCells,
+  sentimentSampleSets,
   staff,
   teamMedianResponseMinutes,
   timeEntries,
@@ -39,9 +56,16 @@ import {
   clients,
   dailyResponseTimes,
   demoDateRange,
+  monthlyPatternsByClient,
   onboardingClients,
+  pairwiseSentiment,
+  patternSamples,
+  patternTrends,
+  predictedClientNeeds,
   responseByContact,
+  sentimentBiweekly,
   sentimentCells,
+  sentimentSampleSets,
   staff,
   teamMedianResponseMinutes,
   timeEntries,
@@ -62,6 +86,13 @@ export type MockDashboardSnapshot = {
   weeklyEmailVolume: typeof weeklyEmailVolume
   dailyResponseTimes: typeof dailyResponseTimes
   weeklyClientInboundEmails: typeof weeklyClientInboundEmails
+  monthlyPatternsByClient: typeof monthlyPatternsByClient
+  patternTrends: typeof patternTrends
+  patternSamples: typeof patternSamples
+  predictedClientNeeds: typeof predictedClientNeeds
+  sentimentBiweekly: typeof sentimentBiweekly
+  sentimentSampleSets: typeof sentimentSampleSets
+  pairwiseSentiment: typeof pairwiseSentiment
   onboardingClients: typeof onboardingClients
   onboardingDetailsById: typeof onboardingDetailsById
 }
@@ -82,6 +113,13 @@ export function getMockDashboardSnapshot(): MockDashboardSnapshot {
     weeklyEmailVolume,
     dailyResponseTimes,
     weeklyClientInboundEmails,
+    monthlyPatternsByClient,
+    patternTrends,
+    patternSamples,
+    predictedClientNeeds,
+    sentimentBiweekly,
+    sentimentSampleSets,
+    pairwiseSentiment,
     onboardingClients,
     onboardingDetailsById,
   }
