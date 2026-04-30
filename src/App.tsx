@@ -21,7 +21,6 @@ import {
   Inbox,
   Mail,
   Rocket,
-  Sparkles,
   Users,
   X,
 } from 'lucide-react'
@@ -31,22 +30,19 @@ import {
   TASK_TYPES,
   clientContacts,
   clients,
-  demoDateRange,
-  onboardingClients,
+  getMockDashboardSnapshot,
+  getTeamMedianResponseMinutes,
+  onboardingDetailsById,
   responseByContact,
   sentimentCells,
   staff,
-  teamMedianResponseMinutes,
   timeEntries,
   type TimeEntry,
   weeklyEmailVolume,
-} from './data/demo'
-import { onboardingDetailsById } from './data/onboardingDetails'
+} from './data/mockDashboard'
 import { DateRangePicker } from './components/DateRangePicker'
+import { FilterMultiSelect } from './components/FilterMultiSelect'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
-
-const BASELINE_FROM = format(demoDateRange.start, 'yyyy-MM-dd')
-const BASELINE_TO = format(demoDateRange.end, 'yyyy-MM-dd')
 
 type NavId =
   | 'timesheets'
@@ -163,6 +159,10 @@ function sentimentColor(score: number) {
 }
 
 export default function App() {
+  const snapshot = useMemo(() => getMockDashboardSnapshot(), [])
+  const BASELINE_FROM = format(snapshot.dateRange.start, 'yyyy-MM-dd')
+  const BASELINE_TO = format(snapshot.dateRange.end, 'yyyy-MM-dd')
+
   const [nav, setNav] = useState<NavId>('timesheets')
   const [dateFrom, setDateFrom] = useState(BASELINE_FROM)
   const [dateTo, setDateTo] = useState(BASELINE_TO)
@@ -171,14 +171,15 @@ export default function App() {
   const [filterTaskTypes, setFilterTaskTypes] = useState<TaskType[] | null>(
     null,
   )
+  const [openFilterId, setOpenFilterId] = useState<string | null>(null)
   const [tsSub, setTsSub] = useState<
     'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export'
   >('overview')
-  const [exportStaffId, setExportStaffId] = useState(staff[0]!.id)
+  const [exportStaffId, setExportStaffId] = useState(snapshot.staff[0]!.id)
   const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
   const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
     () =>
-      onboardingClients.map((c) => ({
+      getMockDashboardSnapshot().onboardingClients.map((c) => ({
         ...c,
         steps: c.steps.map((s) => ({ ...s })),
       })),
@@ -267,7 +268,7 @@ export default function App() {
     return { labels, row, keys }
   }, [filtered, dateFrom, dateTo, exportStaffId])
 
-  const teamMedian = teamMedianResponseMinutes()
+  const teamMedian = getTeamMedianResponseMinutes()
 
   const respByStaff = useMemo(() => {
     const agg = new Map<string, number[]>()
@@ -370,129 +371,124 @@ export default function App() {
   }, [onboardingDetailId])
 
   return (
-    <div className="flex min-h-svh text-wl-ink">
-      <div
-        className="sticky top-0 hidden h-svh w-1.5 shrink-0 bg-wl-teal sm:block"
-        aria-hidden
-      />
-      <aside className="sticky top-0 flex h-svh w-56 shrink-0 flex-col bg-wl-teal-muted px-3 py-6 text-white shadow-md">
-        <div className="mb-8 flex items-center gap-3 px-2">
-          <img
-            src="/icon48.png"
-            srcSet="/icon48.png 1x, /icon128.png 2x"
-            alt=""
-            width={48}
-            height={48}
-            className="h-11 w-11 shrink-0 object-contain"
-            decoding="async"
+    <div className="flex min-h-svh flex-col text-wl-ink">
+      <header className="sticky top-0 z-40 border-b border-wl-surface/50 bg-wl-card shadow-sm shadow-wl-teal-muted/10">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
+          <div className="flex min-w-0 flex-wrap items-center gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <img
+                src="/white-lotus-mark.svg"
+                alt=""
+                width={40}
+                height={40}
+                className="h-10 w-10 shrink-0 object-contain"
+                decoding="async"
+              />
+              <div className="min-w-0">
+                <div className="font-display text-xs font-bold tracking-[0.12em] text-wl-orange">
+                  WHITE LOTUS
+                </div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-wl-teal-muted">
+                  Bookkeeping
+                </div>
+              </div>
+            </div>
+            <span className="hidden h-6 w-px bg-wl-surface/60 sm:block" aria-hidden />
+            <p className="hidden text-[11px] text-wl-ink-muted sm:block">
+              Firm reports (demo data)
+            </p>
+          </div>
+          <DateRangePicker
+            from={dateFrom}
+            to={dateTo}
+            onChange={(f, t) => {
+              setDateFrom(f)
+              setDateTo(t)
+            }}
+            baselineFrom={BASELINE_FROM}
+            baselineTo={BASELINE_TO}
+            className="shrink-0"
           />
-          <div className="min-w-0 text-left">
-            <div className="font-display text-[11px] font-bold tracking-[0.14em] text-white">
-              WHITE LOTUS
-            </div>
-            <div className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.22em] text-white/80">
-              Bookkeeping
-            </div>
-            <div className="mt-1.5 text-[10px] font-medium text-white/65">
-              Firm reports · Demo
-            </div>
-          </div>
         </div>
-        <nav className="flex flex-1 flex-col gap-1">
-          {NAV.map((item) => {
-            const Icon = item.icon
-            const active = nav === item.id
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setNav(item.id)}
-                className={cn(
-                  'flex items-center gap-2 rounded-full px-3 py-2.5 text-left text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-white/25 text-white shadow-inner shadow-black/10'
-                    : 'text-white/90 hover:bg-white/15 hover:text-white',
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0 opacity-95" />
-                {item.label}
-              </button>
-            )
-          })}
-        </nav>
-        <div className="mt-auto rounded-2xl border border-white/25 bg-white/10 p-3 text-left text-[11px] leading-relaxed text-white/85">
-          Demo only — mock data, no backend. For client review of layout &
-          metrics.
+        <div className="border-t border-wl-surface/40 bg-wl-page/80 px-4 sm:px-6 lg:px-10">
+          <nav className="flex gap-1 overflow-x-auto py-1" role="tablist" aria-label="Main">
+            {NAV.map((item) => {
+              const Icon = item.icon
+              const active = nav === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => {
+                    setNav(item.id)
+                    setOpenFilterId(null)
+                  }}
+                  className={cn(
+                    'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-colors',
+                    active
+                      ? 'border-wl-teal text-wl-teal'
+                      : 'border-transparent text-wl-ink-muted hover:border-wl-surface hover:text-wl-ink',
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                  {item.label}
+                </button>
+              )
+            })}
+          </nav>
         </div>
-      </aside>
+      </header>
 
-      <main className="min-w-0 flex-1 overflow-auto px-6 py-8 lg:px-10">
-        <header className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-wl-orange">
-              <Sparkles className="h-3.5 w-3.5" />
-              Stakeholder preview
-            </p>
-            <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-wl-teal md:text-3xl">
-              Operational dashboard — proposed modules
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-wl-ink-muted">
-              ClickUp remains the system of record for tasks and time; this UI
-              shows how pulled-in data could be sliced for firm-level reporting
-              (timesheets via API, email metrics via Google Workspace).
-            </p>
-          </div>
-          <div className="flex flex-wrap items-end justify-end gap-2">
-            <DateRangePicker
-              from={dateFrom}
-              to={dateTo}
-              onChange={(f, t) => {
-                setDateFrom(f)
-                setDateTo(t)
-              }}
-              baselineFrom={BASELINE_FROM}
-              baselineTo={BASELINE_TO}
-            />
-          </div>
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <header className="mb-8">
+          <h1 className="font-display text-xl font-bold tracking-tight text-wl-teal sm:text-2xl">
+            Operational dashboard
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-wl-ink-muted">
+            Time, communications, and onboarding metrics in one place.
+          </p>
         </header>
 
         {nav === 'timesheets' && (
           <div className="space-y-6">
-            <Card
-              title="ClickUp time entries — API snapshot"
-              subtitle="Production would call GET /v2/team/{team_id}/time_entries with start_date / end_date (ms), optional assignee, location filters, and include_task_tags for category mapping."
-            >
-              <div className="flex flex-wrap gap-2 text-xs text-wl-ink-muted">
-                <span className="rounded-full bg-wl-teal/20 px-3 py-1.5 font-medium text-wl-ink">
-                  Workspace time entries align with your requirement to keep
-                  ClickUp for capture.
-                </span>
-                <span className="rounded-full bg-wl-surface/40 px-3 py-1.5 text-wl-ink">
-                  Task types here are mocked; real build would map tags, custom
-                  fields, or list folders to: one-time, recurring, OT, month
-                  end, payroll.
-                </span>
-              </div>
-            </Card>
-
             <div className="flex flex-wrap gap-2 rounded-2xl border border-wl-surface/50 bg-wl-card p-3 shadow-sm">
-              <FilterChip
+              <FilterMultiSelect
+                menuId="staff"
+                isOpen={openFilterId === 'staff'}
+                onOpenChange={(open) =>
+                  setOpenFilterId(open ? 'staff' : null)
+                }
                 icon={Users}
                 label="Staff"
+                searchPlaceholder="Search staff…"
                 options={staff.map((s) => ({ id: s.id, label: s.name }))}
                 selected={filterStaff}
                 onChange={setFilterStaff}
               />
-              <FilterChip
+              <FilterMultiSelect
+                menuId="clients"
+                isOpen={openFilterId === 'clients'}
+                onOpenChange={(open) =>
+                  setOpenFilterId(open ? 'clients' : null)
+                }
                 icon={Building2}
                 label="Clients"
+                searchPlaceholder="Search clients…"
                 options={clients.map((c) => ({ id: c.id, label: c.name }))}
                 selected={filterClients}
                 onChange={setFilterClients}
               />
-              <FilterChip
+              <FilterMultiSelect
+                menuId="taskType"
+                isOpen={openFilterId === 'taskType'}
+                onOpenChange={(open) =>
+                  setOpenFilterId(open ? 'taskType' : null)
+                }
                 icon={Clock}
                 label="Task type"
+                searchPlaceholder="Search task types…"
                 options={TASK_TYPES.map((t) => ({ id: t, label: t }))}
                 selected={filterTaskTypes}
                 onChange={setFilterTaskTypes}
@@ -813,25 +809,13 @@ export default function App() {
 
         {nav === 'response' && (
           <div className="space-y-6">
-            <Card
-              title="Google Workspace — client domain threads (mock)"
-              subtitle="Production: Gmail API or audit exports scoped to client domains from company profiles; pair inbound client messages with firm replies to measure latency."
-            >
-              <p className="text-sm leading-relaxed text-wl-ink-muted">
-                Contacts below include{' '}
-                <strong className="text-wl-ink">priority / role</strong> so
-                SLAs can differ (e.g. faster to Executive Director than AP
-                specialist).
-              </p>
-            </Card>
-
             <div className="grid gap-6 lg:grid-cols-3">
               <Card title="Team median response">
                 <p className="font-display text-3xl font-bold text-wl-teal">
                   {Math.round(teamMedian)}m
                 </p>
                 <p className="mt-1 text-xs text-wl-ink-muted">
-                  Across mocked client–staff pairs in range
+                  All client–staff pairs in sample
                 </p>
               </Card>
               <Card title="Fastest quartile (staff)">
@@ -842,7 +826,7 @@ export default function App() {
                   {respByStaff[0]?.name}
                 </p>
               </Card>
-              <Card title="Needs coaching (mock)">
+              <Card title="Slowest median (staff)">
                 <p className="font-display text-3xl font-bold text-wl-orange">
                   {respByStaff[respByStaff.length - 1]?.median ?? '—'}m
                 </p>
@@ -981,8 +965,8 @@ export default function App() {
         {nav === 'sentiment' && (
           <div className="space-y-6">
             <Card
-              title="Sentiment heat map (mock NLP scores)"
-              subtitle="Scores normalized −1…+1 from email threads per client. Only last 12 weeks of windows are shown, per your spec."
+              title="Client sentiment"
+              subtitle="Rolling windows (demo scores)."
             >
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-2 text-sm">
@@ -1056,8 +1040,8 @@ export default function App() {
         {nav === 'email' && (
           <div className="space-y-6">
             <Card
-              title="Send volume vs logged time (mock)"
-              subtitle="Hypothesis: high logged hours but flat email sends may warrant a utilization conversation. Twelve sample weeks below."
+              title="Email volume vs logged time"
+              subtitle="Recent weeks — team totals and per employee."
             >
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="h-72">
@@ -1136,8 +1120,8 @@ export default function App() {
         {nav === 'onboarding' && (
           <div className="space-y-6">
             <Card
-              title="New client onboarding — status tracker (mock)"
-              subtitle="Same visual language as month-end close boards: stages, owners, and checklist completion."
+              title="Client onboarding"
+              subtitle="Stages, owners, and checklist progress."
             >
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {onboardingState.map((ob) => {
@@ -1337,102 +1321,6 @@ export default function App() {
                 Next sync: {onboardingDetail.nextSync}
               </p>
             </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FilterChip<T extends string>({
-  icon: Icon,
-  label,
-  options,
-  selected,
-  onChange,
-}: {
-  icon: typeof Users
-  label: string
-  options: { id: T; label: string }[]
-  selected: T[] | null
-  onChange: (v: T[] | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const allIds = options.map((x) => x.id)
-  const summary =
-    selected === null
-      ? 'All'
-      : selected.length === 0
-        ? 'None match'
-        : selected.length <= 2
-          ? options
-              .filter((o) => selected.includes(o.id))
-              .map((o) => o.label)
-              .join(', ')
-          : `${selected.length} selected`
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-full border-2 border-wl-ink/15 bg-wl-surface/30 px-3 py-2 text-left text-xs text-wl-ink hover:bg-wl-surface/50"
-      >
-        <Icon className="h-3.5 w-3.5 text-wl-teal-muted" />
-        <span className="font-semibold uppercase tracking-wide text-wl-ink-muted">
-          {label}:
-        </span>
-        <span className="max-w-[140px] truncate">{summary}</span>
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 min-w-[220px] rounded-2xl border border-wl-surface/60 bg-wl-card p-2 shadow-xl">
-          <div className="mb-2 flex gap-2 border-b border-wl-surface/40 pb-2">
-            <button
-              type="button"
-              className="text-[11px] font-semibold uppercase text-wl-teal-muted hover:underline"
-              onClick={() => onChange(null)}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className="text-[11px] font-semibold uppercase text-wl-ink-muted hover:underline"
-              onClick={() => onChange([])}
-            >
-              None
-            </button>
-          </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto">
-            {options.map((o) => {
-              const checked =
-                selected === null ? true : selected.includes(o.id)
-              return (
-                <label
-                  key={o.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 text-xs hover:bg-wl-teal/10"
-                >
-                  <input
-                    type="checkbox"
-                    className="rounded border-wl-surface text-wl-teal-muted"
-                    checked={checked}
-                    onChange={() => {
-                      if (selected === null) {
-                        onChange(allIds.filter((id) => id !== o.id))
-                      } else if (selected.includes(o.id)) {
-                        const next = selected.filter((id) => id !== o.id)
-                        onChange(next.length === 0 ? [] : next)
-                      } else {
-                        const next = [...selected, o.id]
-                        onChange(next.length === allIds.length ? null : next)
-                      }
-                    }}
-                  />
-                  <span className={cn(!checked && 'text-wl-ink-muted')}>
-                    {o.label}
-                  </span>
-                </label>
-              )
-            })}
           </div>
         </div>
       )}

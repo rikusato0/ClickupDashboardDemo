@@ -60,10 +60,6 @@ export function DateRangePicker({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
-  useEffect(() => {
-    if (open) setViewMonth(parseISO(from))
-  }, [open, from])
-
   const fromD = parseISO(from)
   const toD = parseISO(to)
 
@@ -144,7 +140,10 @@ export function DateRangePicker({
     <div ref={rootRef} className={cn('relative', className)}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) setViewMonth(parseISO(from))
+          setOpen(!open)
+        }}
         className="flex w-full max-w-md items-center gap-2 rounded-full border border-wl-surface/70 bg-wl-surface/35 py-2 pl-4 pr-3 text-left text-sm font-semibold text-wl-ink shadow-sm transition hover:bg-wl-surface/50 lg:max-w-none lg:pr-4"
         aria-expanded={open}
         aria-haspopup="dialog"
