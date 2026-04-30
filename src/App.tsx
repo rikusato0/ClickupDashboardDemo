@@ -44,7 +44,7 @@ import { BrandLogo } from './components/BrandLogo'
 import { DateRangePicker } from './components/DateRangePicker'
 import { FilterMultiSelect } from './components/FilterMultiSelect'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
-import { fmtExportCell, fmtFixed, fmtInt } from './utils/format'
+import { fmtExportCell, fmtFixed, fmtInt, fmtMinutes } from './utils/format'
 
 type NavId =
   | 'timesheets'
@@ -76,6 +76,47 @@ const TOOLTIP_STYLE = {
   border: '1px solid #e5e7eb',
   borderRadius: 12,
   color: '#1e293b',
+}
+
+/**
+ * Industry guidance: 0–2h = fast, 2–4h = warning, 4h+ = critical for
+ * client-response medians. Centralised so chart fills, KPI numbers, and
+ * row badges stay in sync.
+ */
+type RespSeverity = 'fast' | 'warning' | 'critical'
+
+const FAST_MAX_MIN = 120
+const WARNING_MAX_MIN = 240
+
+function responseSeverity(minutes: number): RespSeverity {
+  if (!Number.isFinite(minutes) || minutes <= 0) return 'fast'
+  if (minutes < FAST_MAX_MIN) return 'fast'
+  if (minutes < WARNING_MAX_MIN) return 'warning'
+  return 'critical'
+}
+
+const SEVERITY_TEXT: Record<RespSeverity, string> = {
+  fast: 'text-emerald-600',
+  warning: 'text-amber-600',
+  critical: 'text-wl-orange',
+}
+
+const SEVERITY_BADGE: Record<RespSeverity, string> = {
+  fast: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  warning: 'bg-amber-50 text-amber-700 border border-amber-200',
+  critical: 'bg-wl-orange/10 text-wl-orange border border-wl-orange/30',
+}
+
+const SEVERITY_LABEL: Record<RespSeverity, string> = {
+  fast: 'Fast',
+  warning: 'Warning',
+  critical: 'Critical',
+}
+
+const SEVERITY_FILL: Record<RespSeverity, string> = {
+  fast: '#10b981',
+  warning: '#f59e0b',
+  critical: '#ff8500',
 }
 
 function cn(...parts: (string | false | undefined)[]) {
@@ -1090,7 +1131,7 @@ export default function App() {
                 {respAlerts.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-wl-surface bg-wl-page py-6 text-center text-xs text-wl-ink-muted">
                     No clients are currently {respAlertDirection} the{' '}
-                    {fmtInt(respAlertThreshold)}-minute threshold.
+                    {fmtMinutes(respAlertThreshold)} threshold.
                   </p>
                 ) : (
                   <div className="rounded-xl border border-wl-surface bg-wl-page p-2">
@@ -1100,7 +1141,7 @@ export default function App() {
                           {fmtInt(respAlerts.length)}
                         </span>{' '}
                         of {fmtInt(respByClient.length)} clients{' '}
-                        {respAlertDirection} {fmtInt(respAlertThreshold)}m
+                        {respAlertDirection} {fmtMinutes(respAlertThreshold)}
                       </span>
                       {respAlerts.length > 5 && (
                         <span className="text-[10px] uppercase tracking-wide">
@@ -1112,13 +1153,23 @@ export default function App() {
                       className="max-h-72 space-y-2 overflow-y-auto pr-1"
                       role="list"
                     >
-                    {respAlerts.map((a) => (
+                    {respAlerts.map((a) => {
+                      const sev = responseSeverity(a.median)
+                      return (
                       <li
                         key={a.clientId}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-wl-orange/30 bg-wl-orange/5 px-3 py-2"
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-xl px-3 py-2',
+                          SEVERITY_BADGE[sev],
+                        )}
                       >
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wl-orange/15 text-wl-orange">
+                          <span
+                            className={cn(
+                              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/60',
+                              SEVERITY_TEXT[sev],
+                            )}
+                          >
                             <Bell className="h-3.5 w-3.5" />
                           </span>
                           <div className="min-w-0">
@@ -1126,16 +1177,30 @@ export default function App() {
                               {a.clientName}
                             </div>
                             <div className="truncate text-xs text-wl-ink-muted">
-                              Median {fmtInt(Math.round(a.median))}m · threshold{' '}
-                              {fmtInt(respAlertThreshold)}m
+                              Median{' '}
+                              <span
+                                className={cn(
+                                  'font-semibold',
+                                  SEVERITY_TEXT[sev],
+                                )}
+                              >
+                                {fmtMinutes(a.median)}
+                              </span>{' '}
+                              · threshold {fmtMinutes(respAlertThreshold)}
                             </div>
                           </div>
                         </div>
-                        <span className="shrink-0 rounded-md bg-wl-orange/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-wl-orange">
-                          Breach
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide',
+                            SEVERITY_BADGE[sev],
+                          )}
+                        >
+                          {SEVERITY_LABEL[sev]}
                         </span>
                       </li>
-                    ))}
+                      )
+                    })}
                     </ul>
                   </div>
                 )}
@@ -1147,33 +1212,134 @@ export default function App() {
 
             <div className="grid gap-6 lg:grid-cols-3">
               <Card title="Team median response">
-                <p className="text-3xl font-bold text-wl-ink">
-                  {fmtInt(Math.round(teamMedian))}m
-                </p>
-                <p className="mt-1 text-xs text-wl-ink-muted">
-                  Across all client–staff pairs
-                </p>
+                {(() => {
+                  const sev = responseSeverity(teamMedian)
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-3">
+                        <p
+                          className={cn(
+                            'text-3xl font-bold',
+                            SEVERITY_TEXT[sev],
+                          )}
+                        >
+                          {fmtMinutes(teamMedian)}
+                        </p>
+                        <span
+                          className={cn(
+                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                            SEVERITY_BADGE[sev],
+                          )}
+                        >
+                          {SEVERITY_LABEL[sev]}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-wl-ink-muted">
+                        Across all client–staff pairs
+                      </p>
+                    </>
+                  )
+                })()}
               </Card>
               <Card title="Fastest quartile (staff)">
-                <p className="text-3xl font-bold text-wl-ink">
-                  {respByStaff[0]?.median != null
-                    ? `${fmtInt(respByStaff[0].median)}m`
-                    : '—'}
-                </p>
-                <p className="mt-1 truncate text-xs text-wl-ink-muted">
-                  {respByStaff[0]?.name}
-                </p>
+                {(() => {
+                  const m = respByStaff[0]?.median
+                  if (m == null) {
+                    return (
+                      <p className="text-3xl font-bold text-wl-ink">—</p>
+                    )
+                  }
+                  const sev = responseSeverity(m)
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-3">
+                        <p
+                          className={cn(
+                            'text-3xl font-bold',
+                            SEVERITY_TEXT[sev],
+                          )}
+                        >
+                          {fmtMinutes(m)}
+                        </p>
+                        <span
+                          className={cn(
+                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                            SEVERITY_BADGE[sev],
+                          )}
+                        >
+                          {SEVERITY_LABEL[sev]}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-wl-ink-muted">
+                        {respByStaff[0]?.name}
+                      </p>
+                    </>
+                  )
+                })()}
               </Card>
               <Card title="Slowest median (staff)">
-                <p className="text-3xl font-bold text-wl-ink">
-                  {respByStaff[respByStaff.length - 1]?.median != null
-                    ? `${fmtInt(respByStaff[respByStaff.length - 1]!.median)}m`
-                    : '—'}
-                </p>
-                <p className="mt-1 truncate text-xs text-wl-ink-muted">
-                  {respByStaff[respByStaff.length - 1]?.name}
-                </p>
+                {(() => {
+                  const last = respByStaff[respByStaff.length - 1]
+                  if (last?.median == null) {
+                    return (
+                      <p className="text-3xl font-bold text-wl-ink">—</p>
+                    )
+                  }
+                  const sev = responseSeverity(last.median)
+                  return (
+                    <>
+                      <div className="flex items-baseline gap-3">
+                        <p
+                          className={cn(
+                            'text-3xl font-bold',
+                            SEVERITY_TEXT[sev],
+                          )}
+                        >
+                          {fmtMinutes(last.median)}
+                        </p>
+                        <span
+                          className={cn(
+                            'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                            SEVERITY_BADGE[sev],
+                          )}
+                        >
+                          {SEVERITY_LABEL[sev]}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-wl-ink-muted">
+                        {last.name}
+                      </p>
+                    </>
+                  )
+                })()}
               </Card>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-wl-surface bg-wl-card px-4 py-2 text-[11px] text-wl-ink-muted">
+              <span className="font-semibold uppercase tracking-wide">
+                Severity scale
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                <span>
+                  <span className="font-semibold text-emerald-600">Fast</span>{' '}
+                  &lt; 2h
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" />
+                <span>
+                  <span className="font-semibold text-amber-600">Warning</span>{' '}
+                  2 – 4h
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-wl-orange" />
+                <span>
+                  <span className="font-semibold text-wl-orange">Critical</span>{' '}
+                  ≥ 4h
+                </span>
+              </span>
             </div>
 
             <Card title="Filter — staff included in rollups">
@@ -1234,7 +1400,7 @@ export default function App() {
                       <XAxis
                         type="number"
                         tick={CHART_TICK}
-                        tickFormatter={(v) => fmtInt(Number(v))}
+                        tickFormatter={(v) => fmtMinutes(Number(v))}
                       />
                       <YAxis
                         type="category"
@@ -1244,19 +1410,13 @@ export default function App() {
                       />
                       <Tooltip
                         contentStyle={TOOLTIP_STYLE}
-                        formatter={(value) => fmtInt(Number(value))}
+                        formatter={(value) => fmtMinutes(Number(value))}
                       />
                       <Bar dataKey="median" radius={[0, 6, 6, 0]}>
-                        {respByStaff.map((_, i) => (
+                        {respByStaff.map((row, i) => (
                           <Cell
                             key={i}
-                            fill={
-                              i < 3
-                                ? '#06b6d4'
-                                : i > respByStaff.length - 4
-                                  ? '#ff8500'
-                                  : '#0e7490'
-                            }
+                            fill={SEVERITY_FILL[responseSeverity(row.median)]}
                           />
                         ))}
                       </Bar>
@@ -1268,7 +1428,9 @@ export default function App() {
                 <div className="max-h-72 space-y-2 overflow-y-auto pr-1 text-sm">
                   {respByContactPriority
                     .sort((a, b) => a.median - b.median)
-                    .map((row) => (
+                    .map((row) => {
+                      const sev = responseSeverity(row.median)
+                      return (
                       <div
                         key={row.id}
                         className="flex items-center justify-between gap-2 rounded-xl border border-wl-surface bg-wl-page px-3 py-2"
@@ -1281,28 +1443,45 @@ export default function App() {
                             {row.role} · {row.clientName}
                           </div>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <div className="tabular-nums font-semibold text-wl-ink">
-                            {fmtInt(row.median)}m
+                        <div className="flex shrink-0 items-center gap-2">
+                          <div className="text-right">
+                            <div
+                              className={cn(
+                                'tabular-nums font-semibold',
+                                SEVERITY_TEXT[sev],
+                              )}
+                            >
+                              {fmtMinutes(row.median)}
+                            </div>
+                            <span
+                              className={cn(
+                                'mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                                row.priority === 'critical' &&
+                                  'bg-wl-orange/15 text-wl-orange',
+                                row.priority === 'high' &&
+                                  'bg-wl-teal-soft text-wl-teal-muted',
+                                row.priority === 'standard' &&
+                                  'bg-wl-surface text-wl-ink',
+                                row.priority === 'low' &&
+                                  'bg-slate-100 text-wl-ink-muted',
+                              )}
+                            >
+                              {row.priority}
+                            </span>
                           </div>
                           <span
                             className={cn(
-                              'mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                              row.priority === 'critical' &&
-                                'bg-wl-orange/15 text-wl-orange',
-                              row.priority === 'high' &&
-                                'bg-wl-teal-soft text-wl-teal-muted',
-                              row.priority === 'standard' &&
-                                'bg-wl-surface text-wl-ink',
-                              row.priority === 'low' &&
-                                'bg-slate-100 text-wl-ink-muted',
+                              'inline-block h-8 w-1 rounded-full',
+                              sev === 'fast' && 'bg-emerald-500',
+                              sev === 'warning' && 'bg-amber-500',
+                              sev === 'critical' && 'bg-wl-orange',
                             )}
-                          >
-                            {row.priority}
-                          </span>
+                            aria-hidden
+                          />
                         </div>
                       </div>
-                    ))}
+                      )
+                    })}
                 </div>
               </Card>
             </div>
