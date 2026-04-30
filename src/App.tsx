@@ -753,7 +753,7 @@ export default function App() {
                 action={
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-lg bg-wl-teal-muted px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-white shadow-md transition hover:brightness-110"
+                    className="inline-flex items-center gap-2 rounded-lg bg-wl-teal px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wl-teal-muted"
                   >
                     <Download className="h-4 w-4" />
                     Export CSV
@@ -761,14 +761,14 @@ export default function App() {
                 }
               >
                 <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <label className="text-xs font-semibold uppercase text-wl-ink-muted" htmlFor="es">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted" htmlFor="es">
                     Employee
                   </label>
                   <select
                     id="es"
                     value={exportStaffId}
                     onChange={(e) => setExportStaffId(e.target.value)}
-                    className="rounded-full border-0 bg-wl-surface px-4 py-2 text-sm font-medium text-wl-ink"
+                    className="rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
                   >
                     {staff.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -781,36 +781,36 @@ export default function App() {
                   <table className="min-w-full border-collapse text-xs">
                     <thead>
                       <tr>
-                        <th className="border border-wl-surface/60 bg-wl-surface/35 px-2 py-2 text-left text-xs font-semibold uppercase text-wl-ink-muted">
+                        <th className="border border-wl-surface bg-wl-page px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
                           Employee / day
                         </th>
                         {exportDays.labels.map((l) => (
                           <th
                             key={l}
-                            className="border border-wl-surface/60 bg-wl-surface/35 px-2 py-2 text-center text-xs font-semibold text-wl-ink-muted"
+                            className="border border-wl-surface bg-wl-page px-2 py-2 text-center text-xs font-semibold text-wl-ink-muted"
                           >
                             {l}
                           </th>
                         ))}
-                        <th className="border border-wl-teal-muted/50 bg-wl-teal/20 px-3 py-2 text-center text-xs font-bold uppercase text-wl-teal-muted">
+                        <th className="border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-wl-teal-muted">
                           Total
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td className="border border-wl-surface/60 bg-wl-surface/25 px-2 py-2 font-medium text-wl-ink">
+                        <td className="border border-wl-surface bg-wl-page px-2 py-2 font-medium text-wl-ink">
                           {staff.find((s) => s.id === exportStaffId)?.name}
                         </td>
                         {exportDays.labels.map((l) => (
                           <td
                             key={l}
-                            className="border border-wl-surface/40 px-2 py-2 text-center tabular-nums text-wl-ink"
+                            className="border border-wl-surface px-2 py-2 text-center tabular-nums text-wl-ink"
                           >
                             {fmtExportCell(exportDays.row[l] as string | number)}
                           </td>
                         ))}
-                        <td className="border border-wl-teal-muted/40 bg-wl-teal/15 px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
+                        <td className="border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
                           {fmtFixed(exportDays.row.total as number, 2)}
                         </td>
                       </tr>
