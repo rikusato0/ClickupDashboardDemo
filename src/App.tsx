@@ -84,6 +84,28 @@ function cn(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(' ')
 }
 
+/** RFC 4180-ish CSV escaping: quote fields that contain , " or newline,
+ * and double up any embedded quotes. Em-dash placeholders become empty. */
+function csvCell(value: string | number): string {
+  if (value === '—' || value === '-' || value === '' || value == null) return ''
+  const s = String(value)
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = rows.map((r) => r.map(csvCell).join(',')).join('\r\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
 /**
  * XAxis tick that renders names horizontally and word-wraps at ~14 chars so long
  * client names like "Maple Street Credit Union" don't overflow their column.
@@ -228,7 +250,7 @@ export default function App() {
   const [tsSub, setTsSub] = useState<
     'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export'
   >('overview')
-  const [exportStaffId, setExportStaffId] = useState(snapshot.staff[0]!.id)
+  const [exportStaffIds, setExportStaffIds] = useState<string[] | null>(null)
   const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
   const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
     () =>
@@ -298,28 +320,50 @@ export default function App() {
       .sort((a, b) => b.hours - a.hours)
   }, [filtered])
 
-  const exportDays = useMemo(() => {
+  const exportData = useMemo(() => {
     const days = eachDayOfInterval({
       start: parseISO(dateFrom),
       end: parseISO(dateTo),
     }).filter((d) => d.getDay() !== 0 && d.getDay() !== 6)
     const labels = days.map((d) => format(d, 'EEE M/d'))
     const keys = days.map((d) => format(d, 'yyyy-MM-dd'))
-    const row: Record<string, string | number> = { name: 'Hours' }
-    let total = 0
-    keys.forEach((k, i) => {
-      const hrs =
-        Math.round(
-          filtered
-            .filter((e) => e.staffId === exportStaffId && e.date === k)
-            .reduce((a, e) => a + e.hours, 0) * 100,
-        ) / 100
-      row[labels[i]!] = hrs || '—'
-      total += hrs
+    const targetIds =
+      exportStaffIds === null ? staff.map((s) => s.id) : exportStaffIds
+    const rows = targetIds
+      .map((sid) => {
+        const s = staff.find((x) => x.id === sid)
+        if (!s) return null
+        const cells: Record<string, string | number> = { id: s.id, name: s.name }
+        let total = 0
+        keys.forEach((k, i) => {
+          const hrs =
+            Math.round(
+              filtered
+                .filter((e) => e.staffId === s.id && e.date === k)
+                .reduce((a, e) => a + e.hours, 0) * 100,
+            ) / 100
+          cells[labels[i]!] = hrs || '—'
+          total += hrs
+        })
+        cells.total = Math.round(total * 100) / 100
+        return cells
+      })
+      .filter(
+        (r): r is Record<string, string | number> => r !== null,
+      )
+    const totalsRow: Record<string, string | number> = { name: 'Daily total' }
+    let grand = 0
+    labels.forEach((l) => {
+      const sum = rows.reduce((acc, r) => {
+        const v = r[l]
+        return acc + (typeof v === 'number' ? v : 0)
+      }, 0)
+      totalsRow[l] = sum > 0 ? Math.round(sum * 100) / 100 : '—'
+      grand += sum
     })
-    row.total = Math.round(total * 100) / 100
-    return { labels, row, keys }
-  }, [filtered, dateFrom, dateTo, exportStaffId])
+    totalsRow.total = Math.round(grand * 100) / 100
+    return { labels, keys, rows, totalsRow }
+  }, [filtered, dateFrom, dateTo, exportStaffIds])
 
   const teamMedian = getTeamMedianResponseMinutes()
 
@@ -805,11 +849,31 @@ export default function App() {
             {tsSub === 'export' && (
               <Card
                 title="Daily export"
-                subtitle="Per-employee weekday hours and period total. Export to CSV when connected."
+                subtitle="Per-employee weekday hours and period total. Pick one or more staff, then export."
                 action={
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 rounded-lg bg-wl-teal px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wl-teal-muted"
+                    disabled={exportData.rows.length === 0}
+                    onClick={() => {
+                      const header = ['Employee', ...exportData.labels, 'Total']
+                      const body = exportData.rows.map((r) => [
+                        String(r.name),
+                        ...exportData.labels.map((l) => r[l] ?? ''),
+                        r.total ?? 0,
+                      ])
+                      const totals = [
+                        'Daily total',
+                        ...exportData.labels.map(
+                          (l) => exportData.totalsRow[l] ?? '',
+                        ),
+                        exportData.totalsRow.total ?? 0,
+                      ]
+                      downloadCsv(
+                        `daily-export_${dateFrom}_to_${dateTo}.csv`,
+                        [header, ...body, totals],
+                      )
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg bg-wl-teal px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-wl-teal-muted disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Download className="h-4 w-4" />
                     Export CSV
@@ -817,21 +881,27 @@ export default function App() {
                 }
               >
                 <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted" htmlFor="es">
-                    Employee
-                  </label>
-                  <select
-                    id="es"
-                    value={exportStaffId}
-                    onChange={(e) => setExportStaffId(e.target.value)}
-                    className="rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
-                  >
-                    {staff.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                    Employees
+                  </span>
+                  <FilterMultiSelect
+                    menuId="export-staff"
+                    isOpen={openFilterId === 'export-staff'}
+                    onOpenChange={(open) =>
+                      setOpenFilterId(open ? 'export-staff' : null)
+                    }
+                    icon={Users}
+                    label="Staff"
+                    searchPlaceholder="Search staff…"
+                    options={staff.map((s) => ({ id: s.id, label: s.name }))}
+                    selected={exportStaffIds}
+                    onChange={setExportStaffIds}
+                  />
+                  <span className="text-[11px] text-wl-ink-muted">
+                    {exportData.rows.length === 0
+                      ? 'No employees selected'
+                      : `${fmtInt(exportData.rows.length)} of ${fmtInt(staff.length)} shown`}
+                  </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-xs">
@@ -840,7 +910,7 @@ export default function App() {
                         <th className="border border-wl-surface bg-wl-page px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
                           Employee / day
                         </th>
-                        {exportDays.labels.map((l) => (
+                        {exportData.labels.map((l) => (
                           <th
                             key={l}
                             className="border border-wl-surface bg-wl-page px-2 py-2 text-center text-xs font-semibold text-wl-ink-muted"
@@ -854,23 +924,58 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td className="border border-wl-surface bg-wl-page px-2 py-2 font-medium text-wl-ink">
-                          {staff.find((s) => s.id === exportStaffId)?.name}
-                        </td>
-                        {exportDays.labels.map((l) => (
+                      {exportData.rows.length === 0 ? (
+                        <tr>
                           <td
-                            key={l}
-                            className="border border-wl-surface px-2 py-2 text-center tabular-nums text-wl-ink"
+                            colSpan={exportData.labels.length + 2}
+                            className="border border-wl-surface px-3 py-6 text-center text-xs text-wl-ink-muted"
                           >
-                            {fmtExportCell(exportDays.row[l] as string | number)}
+                            Select at least one employee to see daily hours.
                           </td>
-                        ))}
-                        <td className="border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
-                          {fmtFixed(exportDays.row.total as number, 2)}
-                        </td>
-                      </tr>
+                        </tr>
+                      ) : (
+                        exportData.rows.map((r) => (
+                          <tr key={r.id as string}>
+                            <td className="border border-wl-surface bg-wl-page px-2 py-2 font-medium text-wl-ink">
+                              {r.name}
+                            </td>
+                            {exportData.labels.map((l) => (
+                              <td
+                                key={l}
+                                className="border border-wl-surface px-2 py-2 text-center tabular-nums text-wl-ink"
+                              >
+                                {fmtExportCell(r[l] as string | number)}
+                              </td>
+                            ))}
+                            <td className="border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
+                              {fmtFixed(r.total as number, 2)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
+                    {exportData.rows.length > 1 && (
+                      <tfoot>
+                        <tr>
+                          <td className="border border-wl-surface bg-wl-page px-2 py-2 text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                            Daily total
+                          </td>
+                          {exportData.labels.map((l) => (
+                            <td
+                              key={l}
+                              className="border border-wl-surface bg-wl-page px-2 py-2 text-center text-xs font-semibold tabular-nums text-wl-ink"
+                            >
+                              {fmtExportCell(
+                                exportData.totalsRow[l] as string | number,
+                              )}
+                            </td>
+                          ))}
+                          <td className="border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-center text-sm font-bold tabular-nums text-wl-teal-muted">
+                            {fmtFixed(exportData.totalsRow.total as number, 2)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </Card>
