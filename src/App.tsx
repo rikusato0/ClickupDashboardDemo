@@ -40,6 +40,7 @@ import {
   type TimeEntry,
   weeklyEmailVolume,
 } from './data/mockDashboard'
+import { BrandLogo } from './components/BrandLogo'
 import { DateRangePicker } from './components/DateRangePicker'
 import { FilterMultiSelect } from './components/FilterMultiSelect'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
@@ -374,29 +375,25 @@ export default function App() {
   return (
     <div className="flex min-h-svh flex-col text-wl-ink">
       <header className="sticky top-0 z-40 border-b border-wl-surface/50 bg-wl-card shadow-sm shadow-wl-teal-muted/10">
-        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
-          <div className="flex min-w-0 flex-wrap items-center gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <img
-                src="/white-lotus-mark.svg"
-                alt=""
-                width={40}
-                height={40}
-                className="h-10 w-10 shrink-0 object-contain"
-                decoding="async"
-              />
-              <div className="min-w-0">
-                <div className="font-display text-xs font-bold tracking-[0.12em] text-wl-orange">
-                  WHITE LOTUS
-                </div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-wl-teal-muted">
-                  Bookkeeping
-                </div>
-              </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-4 px-4 py-3 sm:px-6 lg:px-10">
+          <div className="flex shrink-0 items-center gap-3">
+            <BrandLogo className="h-11 w-11 shrink-0" />
+            <div className="min-w-0 leading-tight">
+              <p className="font-display text-[11px] font-bold tracking-[0.12em] sm:text-xs">
+                <span className="text-wl-orange">WHITE LOTUS</span>{' '}
+                <span className="text-wl-teal-muted">BOOKKEEPING</span>
+              </p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-wl-ink-muted">
+                Firm reports
+              </p>
             </div>
-            <span className="hidden h-6 w-px bg-wl-surface/60 sm:block" aria-hidden />
-            <p className="hidden text-[11px] text-wl-ink-muted sm:block">
-              Firm reports
+          </div>
+          <div className="min-w-0 flex-1 basis-[min(100%,18rem)] px-0 sm:px-2 lg:basis-0 lg:px-6">
+            <h1 className="font-display text-lg font-bold tracking-tight text-wl-teal sm:text-xl">
+              Operational dashboard
+            </h1>
+            <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted sm:max-w-xl sm:text-sm">
+              Time, communications, and onboarding metrics in one place.
             </p>
           </div>
           <DateRangePicker
@@ -408,7 +405,7 @@ export default function App() {
             }}
             baselineFrom={BASELINE_FROM}
             baselineTo={BASELINE_TO}
-            className="shrink-0"
+            className="ml-auto w-full min-w-0 shrink-0 sm:w-auto"
           />
         </div>
         <div className="border-t border-wl-surface/40 bg-wl-page/80 px-4 sm:px-6 lg:px-10">
@@ -443,15 +440,6 @@ export default function App() {
       </header>
 
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10">
-        <header className="mb-8">
-          <h1 className="font-display text-xl font-bold tracking-tight text-wl-teal sm:text-2xl">
-            Operational dashboard
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-wl-ink-muted">
-            Time, communications, and onboarding metrics in one place.
-          </p>
-        </header>
-
         {nav === 'timesheets' && (
           <div className="space-y-6">
             <div className="flex flex-wrap gap-2 rounded-2xl border border-wl-surface/50 bg-wl-card p-3 shadow-sm">
