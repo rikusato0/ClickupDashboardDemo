@@ -374,7 +374,7 @@ export default function App() {
   }, [onboardingDetailId])
 
   return (
-    <div className="flex min-h-svh flex-col text-wl-ink">
+    <div className="flex min-h-svh flex-col bg-wl-page text-wl-ink">
       <header className="sticky top-0 z-40 border-b border-wl-surface bg-wl-card">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-4 px-4 py-3 sm:px-6 lg:px-10">
           <div className="flex shrink-0 items-center gap-3">
@@ -443,7 +443,7 @@ export default function App() {
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10">
         {nav === 'timesheets' && (
           <div className="space-y-6">
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-wl-surface/50 bg-wl-card p-3 shadow-sm">
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-wl-surface bg-wl-card p-3 shadow-sm shadow-slate-900/5">
               <FilterMultiSelect
                 menuId="staff"
                 isOpen={openFilterId === 'staff'}
@@ -575,7 +575,7 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-wl-surface/50 text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                      <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
                         <th className="pb-3 pr-4">Client</th>
                         <th className="pb-3 pr-4">Hours</th>
                         <th className="pb-3">Share</th>
@@ -588,7 +588,7 @@ export default function App() {
                         return (
                           <tr
                             key={r.name}
-                            className="border-b border-wl-surface/30 text-wl-ink"
+                            className="border-b border-wl-surface text-wl-ink"
                           >
                             <td className="py-2 pr-4 font-medium text-wl-ink">
                               {r.name}
@@ -677,7 +677,7 @@ export default function App() {
                         {byClientType.map((row) => (
                           <tr
                             key={String(row.client)}
-                            className="border-t border-wl-surface/40 text-wl-ink"
+                            className="border-t border-wl-surface text-wl-ink"
                           >
                             <td className="py-2 font-medium text-wl-ink">
                               {row.client}
@@ -704,7 +704,7 @@ export default function App() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-wl-surface/50 text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                      <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
                         <th className="pb-3 pr-4">Employee</th>
                         <th className="pb-3 pr-4">Hours</th>
                         <th className="pb-3 pr-4">Entries</th>
@@ -715,7 +715,7 @@ export default function App() {
                       {byStaff.map((r) => (
                         <tr
                           key={r.id}
-                          className="border-b border-wl-surface/30 text-wl-ink"
+                          className="border-b border-wl-surface text-wl-ink"
                         >
                           <td className="py-2 pr-4">
                             <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-wl-teal-soft text-xs font-bold text-wl-teal-muted">
@@ -826,7 +826,7 @@ export default function App() {
           <div className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-3">
               <Card title="Team median response">
-                <p className="font-display text-3xl font-bold text-wl-teal">
+                <p className="text-3xl font-bold text-wl-ink">
                   {fmtInt(Math.round(teamMedian))}m
                 </p>
                 <p className="mt-1 text-xs text-wl-ink-muted">
@@ -834,7 +834,7 @@ export default function App() {
                 </p>
               </Card>
               <Card title="Fastest quartile (staff)">
-                <p className="font-display text-3xl font-bold text-wl-teal-muted">
+                <p className="text-3xl font-bold text-wl-ink">
                   {respByStaff[0]?.median != null
                     ? `${fmtInt(respByStaff[0].median)}m`
                     : '—'}
@@ -844,7 +844,7 @@ export default function App() {
                 </p>
               </Card>
               <Card title="Slowest median (staff)">
-                <p className="font-display text-3xl font-bold text-wl-orange">
+                <p className="text-3xl font-bold text-wl-ink">
                   {respByStaff[respByStaff.length - 1]?.median != null
                     ? `${fmtInt(respByStaff[respByStaff.length - 1]!.median)}m`
                     : '—'}
@@ -861,10 +861,10 @@ export default function App() {
                   type="button"
                   onClick={() => setRespStaffFilter(null)}
                   className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide',
+                    'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
                     respStaffFilter === null
-                      ? 'bg-wl-teal-muted text-white'
-                      : 'border-2 border-wl-orange bg-white text-wl-orange',
+                      ? 'bg-wl-teal-soft text-wl-teal-muted'
+                      : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
                   )}
                 >
                   All staff
@@ -887,10 +887,10 @@ export default function App() {
                         }
                       }}
                       className={cn(
-                        'rounded-full px-3 py-1.5 text-xs font-semibold',
+                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
                         on
-                          ? 'bg-wl-teal-muted text-white'
-                          : 'border border-wl-ink/15 bg-white text-wl-ink-muted',
+                          ? 'bg-wl-teal-soft text-wl-teal-muted'
+                          : 'border border-wl-surface bg-wl-card text-wl-ink-muted hover:text-wl-ink',
                       )}
                     >
                       {s.initials}
@@ -931,10 +931,10 @@ export default function App() {
                             key={i}
                             fill={
                               i < 3
-                                ? '#6ed1d6'
+                                ? '#06b6d4'
                                 : i > respByStaff.length - 4
                                   ? '#ff8500'
-                                  : '#6daaac'
+                                  : '#0e7490'
                             }
                           />
                         ))}
@@ -950,7 +950,7 @@ export default function App() {
                     .map((row) => (
                       <div
                         key={row.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-wl-surface/50 bg-wl-page px-3 py-2"
+                        className="flex items-center justify-between gap-2 rounded-xl border border-wl-surface bg-wl-page px-3 py-2"
                       >
                         <div className="min-w-0">
                           <div className="truncate font-medium text-wl-ink">
@@ -961,20 +961,20 @@ export default function App() {
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="font-display tabular-nums font-semibold text-wl-teal-muted">
+                          <div className="tabular-nums font-semibold text-wl-ink">
                             {fmtInt(row.median)}m
                           </div>
                           <span
                             className={cn(
                               'mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide',
                               row.priority === 'critical' &&
-                                'bg-wl-orange/20 text-wl-orange',
+                                'bg-wl-orange/15 text-wl-orange',
                               row.priority === 'high' &&
-                                'bg-wl-teal/25 text-wl-teal-muted',
+                                'bg-wl-teal-soft text-wl-teal-muted',
                               row.priority === 'standard' &&
-                                'bg-wl-surface/50 text-wl-ink',
+                                'bg-wl-surface text-wl-ink',
                               row.priority === 'low' &&
-                                'bg-wl-ink/10 text-wl-ink-muted',
+                                'bg-slate-100 text-wl-ink-muted',
                             )}
                           >
                             {row.priority}
@@ -1004,7 +1004,7 @@ export default function App() {
                       {[2, 4, 8, 12].map((w) => (
                         <th
                           key={w}
-                          className="px-2 py-2 text-center text-xs font-semibold text-wl-orange"
+                          className="px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-wl-ink-muted"
                         >
                           Last {w} wks
                         </th>
@@ -1103,7 +1103,7 @@ export default function App() {
                         type="monotone"
                         dataKey="_team_sent"
                         name="Team emails sent"
-                        stroke="#6ed1d6"
+                        stroke="#06b6d4"
                         strokeWidth={2}
                         dot={false}
                       />
@@ -1128,10 +1128,10 @@ export default function App() {
                     return (
                       <div
                         key={s.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-wl-surface/50 bg-wl-card px-3 py-2 shadow-sm"
+                        className="flex items-center justify-between gap-3 rounded-xl border border-wl-surface bg-wl-card px-3 py-2"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-wl-teal/20 text-xs font-bold text-wl-teal-muted">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-wl-teal-soft text-xs font-bold text-wl-teal-muted">
                             {s.initials}
                           </span>
                           <div>
@@ -1146,7 +1146,7 @@ export default function App() {
                           <div className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
                             Sends / hour
                           </div>
-                          <div className="font-display text-lg tabular-nums font-semibold text-wl-orange">
+                          <div className="text-lg tabular-nums font-semibold text-wl-ink">
                             {fmtFixed(Math.round(ratio * 10) / 10, 1)}
                           </div>
                         </div>
@@ -1171,31 +1171,31 @@ export default function App() {
                   return (
                     <div
                       key={ob.id}
-                      className="flex flex-col rounded-2xl border border-wl-surface/50 bg-gradient-to-b from-wl-teal/5 to-wl-card p-4 shadow-sm"
+                      className="flex flex-col rounded-2xl border border-wl-surface bg-wl-card p-4 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="font-display text-base font-bold text-wl-teal">
+                          <h4 className="text-base font-bold text-wl-ink">
                             {ob.clientName}
                           </h4>
                           <p className="mt-1 text-xs text-wl-ink-muted">
                             Owner: {owner?.name} · Target: {ob.targetGoLive}
                           </p>
                         </div>
-                        <span className="shrink-0 rounded-lg bg-wl-orange/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-wl-orange">
+                        <span className="shrink-0 rounded-md bg-wl-teal-soft px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-wl-teal-muted">
                           {ob.stage}
                         </span>
                       </div>
                       <div className="mt-3">
                         <div className="mb-1 flex justify-between text-xs text-wl-ink-muted">
                           <span>Progress</span>
-                          <span className="font-semibold">
+                          <span className="font-semibold text-wl-ink">
                             {fmtInt(ob.percentComplete)}%
                           </span>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-wl-surface/40">
+                        <div className="h-2 overflow-hidden rounded-full bg-wl-surface">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-wl-teal-muted to-wl-teal"
+                            className="h-full rounded-full bg-wl-teal"
                             style={{ width: `${ob.percentComplete}%` }}
                           />
                         </div>
@@ -1208,14 +1208,14 @@ export default function App() {
                               onClick={() =>
                                 toggleOnboardingStep(ob.id, stepIndex)
                               }
-                              className="flex w-full items-start gap-2 rounded-xl py-0.5 text-left transition hover:bg-wl-teal/10"
+                              className="flex w-full items-start gap-2 rounded-xl py-0.5 text-left transition hover:bg-wl-teal-soft/60"
                             >
                               <span
                                 className={cn(
                                   'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[10px]',
                                   step.done
-                                    ? 'border-wl-teal-muted bg-wl-teal/15 text-wl-teal-muted'
-                                    : 'border-wl-surface bg-wl-page text-wl-ink-muted',
+                                    ? 'border-wl-teal bg-wl-teal text-white'
+                                    : 'border-wl-surface bg-wl-card text-wl-ink-muted',
                                 )}
                                 aria-hidden
                               >
@@ -1236,7 +1236,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setOnboardingDetailId(ob.id)}
-                        className="mt-4 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-wl-orange hover:text-wl-teal-muted"
+                        className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-wl-teal hover:text-wl-teal-muted"
                       >
                         Open detail
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -1259,20 +1259,20 @@ export default function App() {
           }}
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-wl-surface/60 bg-wl-card shadow-2xl"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-wl-surface bg-wl-card shadow-2xl"
             role="dialog"
             aria-labelledby="onboarding-detail-title"
             aria-modal="true"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-wl-surface/40 bg-wl-card px-5 py-4">
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-wl-surface bg-wl-card px-5 py-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-wl-orange">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-wl-teal">
                   Onboarding detail
                 </p>
                 <h2
                   id="onboarding-detail-title"
-                  className="font-display text-lg font-bold text-wl-teal"
+                  className="text-lg font-bold text-wl-ink"
                 >
                   {onboardingState.find((o) => o.id === onboardingDetailId)
                     ?.clientName ?? 'Client'}
@@ -1290,7 +1290,7 @@ export default function App() {
               </div>
               <button
                 type="button"
-                className="rounded-xl p-2 text-wl-ink-muted transition hover:bg-wl-teal/10 hover:text-wl-ink"
+                className="rounded-xl p-2 text-wl-ink-muted transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
                 onClick={() => setOnboardingDetailId(null)}
                 aria-label="Close"
               >
@@ -1302,14 +1302,14 @@ export default function App() {
                 {onboardingDetail.executiveSummary}
               </p>
               <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-teal-muted">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-ink-muted">
                   Milestones
                 </h3>
                 <ul className="space-y-2">
                   {onboardingDetail.milestones.map((m) => (
                     <li
                       key={`${m.date}-${m.label}`}
-                      className="flex flex-col gap-1 border-b border-wl-surface/30 pb-3 text-xs last:border-0 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-1 border-b border-wl-surface pb-3 text-xs last:border-0 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <span className="font-semibold text-wl-ink">{m.label}</span>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -1320,9 +1320,9 @@ export default function App() {
                           className={cn(
                             'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase',
                             m.status === 'done' &&
-                              'bg-wl-teal/15 text-wl-teal-muted',
+                              'bg-wl-teal-soft text-wl-teal-muted',
                             m.status === 'upcoming' &&
-                              'bg-wl-surface/40 text-wl-ink-muted',
+                              'bg-wl-surface text-wl-ink-muted',
                             m.status === 'at-risk' &&
                               'bg-wl-orange/15 text-wl-orange',
                           )}
@@ -1351,7 +1351,7 @@ export default function App() {
                 </div>
               )}
               <div>
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-teal-muted">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-wl-ink-muted">
                   Client contacts
                 </h3>
                 <ul className="space-y-1 text-xs">
@@ -1363,7 +1363,7 @@ export default function App() {
                   ))}
                 </ul>
               </div>
-              <p className="rounded-xl bg-wl-teal/10 px-3 py-2 text-xs font-semibold text-wl-teal-muted">
+              <p className="rounded-xl bg-wl-teal-soft px-3 py-2 text-xs font-semibold text-wl-teal-muted">
                 Next sync: {onboardingDetail.nextSync}
               </p>
             </div>

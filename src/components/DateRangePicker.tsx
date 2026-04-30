@@ -144,11 +144,11 @@ export function DateRangePicker({
           if (!open) setViewMonth(parseISO(from))
           setOpen(!open)
         }}
-        className="flex w-full max-w-md items-center gap-2 rounded-full border border-wl-surface/70 bg-wl-surface/35 py-2 pl-4 pr-3 text-left text-sm font-semibold text-wl-ink shadow-sm transition hover:bg-wl-surface/50 lg:max-w-none lg:pr-4"
+        className="flex w-full max-w-md items-center gap-2 rounded-lg border border-wl-surface bg-wl-card py-2 pl-3 pr-2 text-left text-sm font-medium text-wl-ink shadow-sm transition hover:border-wl-teal/40 lg:max-w-none lg:pr-3"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <CalendarRange className="h-4 w-4 shrink-0 text-wl-teal-muted" />
+        <CalendarRange className="h-4 w-4 shrink-0 text-wl-ink-muted" />
         <span className="tabular-nums">{format(fromD, 'MM/dd/yyyy')}</span>
         <span className="text-wl-ink-muted">–</span>
         <span className="tabular-nums">{format(toD, 'MM/dd/yyyy')}</span>
@@ -162,12 +162,12 @@ export function DateRangePicker({
 
       {open && (
         <div
-          className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,28rem)] overflow-hidden rounded-2xl border border-wl-surface/60 bg-wl-card shadow-xl shadow-wl-teal-muted/20 lg:w-[34rem]"
+          className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,28rem)] overflow-hidden rounded-2xl border border-wl-surface bg-wl-card shadow-xl shadow-slate-900/10 lg:w-[34rem]"
           role="dialog"
           aria-label="Date range"
         >
           <div className="flex flex-col sm:flex-row">
-            <div className="border-b border-wl-surface/40 sm:w-44 sm:border-b-0 sm:border-r sm:border-wl-surface/40">
+            <div className="border-b border-wl-surface sm:w-44 sm:border-b-0 sm:border-r">
               <p className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-wl-ink-muted">
                 Quick ranges
               </p>
@@ -180,7 +180,7 @@ export function DateRangePicker({
                         p.run()
                         setOpen(false)
                       }}
-                      className="w-full rounded-xl px-3 py-2 text-left text-xs font-semibold text-wl-ink transition hover:bg-wl-teal/15"
+                      className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-wl-ink transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
                     >
                       {p.label}
                     </button>
@@ -195,13 +195,13 @@ export function DateRangePicker({
                   type="button"
                   onClick={() => setActiveField('from')}
                   className={cn(
-                    'flex-1 rounded-xl border-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide transition',
+                    'flex-1 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition',
                     activeField === 'from'
-                      ? 'border-wl-teal-muted bg-wl-teal/15 text-wl-ink'
-                      : 'border-transparent bg-wl-page text-wl-ink-muted hover:border-wl-surface/50',
+                      ? 'border-wl-teal bg-wl-teal-soft text-wl-ink'
+                      : 'border-wl-surface bg-wl-card text-wl-ink-muted hover:border-wl-teal/40',
                   )}
                 >
-                  <span className="block text-[10px] font-semibold text-wl-ink-muted">
+                  <span className="block text-[10px] font-medium uppercase tracking-wide text-wl-ink-muted">
                     Start
                   </span>
                   {format(fromD, 'MM/dd/yyyy')}
@@ -210,13 +210,13 @@ export function DateRangePicker({
                   type="button"
                   onClick={() => setActiveField('to')}
                   className={cn(
-                    'flex-1 rounded-xl border-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide transition',
+                    'flex-1 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition',
                     activeField === 'to'
-                      ? 'border-wl-teal-muted bg-wl-teal/15 text-wl-ink'
-                      : 'border-transparent bg-wl-page text-wl-ink-muted hover:border-wl-surface/50',
+                      ? 'border-wl-teal bg-wl-teal-soft text-wl-ink'
+                      : 'border-wl-surface bg-wl-card text-wl-ink-muted hover:border-wl-teal/40',
                   )}
                 >
-                  <span className="block text-[10px] font-semibold text-wl-ink-muted">
+                  <span className="block text-[10px] font-medium uppercase tracking-wide text-wl-ink-muted">
                     End
                   </span>
                   {format(toD, 'MM/dd/yyyy')}
@@ -226,18 +226,18 @@ export function DateRangePicker({
               <div className="mb-2 flex items-center justify-between gap-2">
                 <button
                   type="button"
-                  className="rounded-lg p-1.5 text-wl-ink-muted transition hover:bg-wl-teal/10 hover:text-wl-teal-muted"
+                  className="rounded-lg p-1.5 text-wl-ink-muted transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
                   onClick={() => setViewMonth((m) => subMonths(m, 1))}
                   aria-label="Previous month"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <span className="text-sm font-bold text-wl-ink">
+                <span className="text-sm font-semibold text-wl-ink">
                   {format(viewMonth, 'MMMM yyyy')}
                 </span>
                 <button
                   type="button"
-                  className="rounded-lg p-1.5 text-wl-ink-muted transition hover:bg-wl-teal/10 hover:text-wl-teal-muted"
+                  className="rounded-lg p-1.5 text-wl-ink-muted transition hover:bg-wl-teal-soft hover:text-wl-teal-muted"
                   onClick={() => setViewMonth((m) => addMonths(m, 1))}
                   aria-label="Next month"
                 >
@@ -268,12 +268,12 @@ export function DateRangePicker({
                       onClick={() => pickDay(day)}
                       className={cn(
                         'relative aspect-square max-h-9 text-xs font-semibold transition',
-                        muted && 'text-wl-ink-muted/45',
+                        muted && 'text-wl-ink-muted/40',
                         !muted && !between && !(isStart || isEnd) && 'text-wl-ink',
-                        between && 'bg-wl-teal/15 text-wl-ink',
+                        between && 'bg-wl-teal-soft text-wl-ink',
                         (isStart || isEnd) &&
-                          'bg-wl-teal-muted text-white shadow-sm',
-                        !between && !(isStart || isEnd) && !muted && 'hover:bg-wl-teal/10',
+                          'bg-wl-teal text-white shadow-sm',
+                        !between && !(isStart || isEnd) && !muted && 'hover:bg-wl-teal-soft hover:text-wl-teal-muted',
                         oneDay && 'rounded-lg',
                         !oneDay && isStart && 'rounded-l-lg',
                         !oneDay && isEnd && 'rounded-r-lg',
@@ -285,18 +285,18 @@ export function DateRangePicker({
                 })}
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-wl-surface/40 pt-3">
+              <div className="mt-4 flex items-center justify-between border-t border-wl-surface pt-3">
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="text-xs font-bold uppercase tracking-wide text-wl-teal-muted hover:underline"
+                  className="text-xs font-semibold text-wl-ink-muted hover:text-wl-ink hover:underline"
                 >
                   Clear
                 </button>
                 <button
                   type="button"
                   onClick={handleToday}
-                  className="text-xs font-bold uppercase tracking-wide text-wl-orange hover:underline"
+                  className="text-xs font-semibold text-wl-teal hover:text-wl-teal-muted hover:underline"
                 >
                   Last 30 days → today
                 </button>

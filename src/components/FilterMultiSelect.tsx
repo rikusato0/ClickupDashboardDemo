@@ -85,16 +85,16 @@ export function FilterMultiSelect<T extends string>({
             onOpenChange(true)
           }
         }}
-        className="flex items-center gap-2 rounded-full border-2 border-wl-ink/15 bg-wl-surface/30 px-3 py-2 text-left text-xs text-wl-ink hover:bg-wl-surface/50"
+        className="flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-left text-xs text-wl-ink shadow-sm transition hover:border-wl-teal/40"
       >
-        <Icon className="h-3.5 w-3.5 text-wl-teal-muted" />
+        <Icon className="h-3.5 w-3.5 text-wl-ink-muted" />
         <span className="font-semibold uppercase tracking-wide text-wl-ink-muted">
           {label}:
         </span>
-        <span className="max-w-[140px] truncate">{summary}</span>
+        <span className="max-w-[140px] truncate font-medium text-wl-ink">{summary}</span>
       </button>
       {isOpen && (
-        <div className="absolute left-0 top-full z-30 mt-1 min-w-[240px] max-w-[min(100vw-2rem,20rem)] rounded-2xl border border-wl-surface/60 bg-wl-card p-2 shadow-xl">
+        <div className="absolute left-0 top-full z-30 mt-1 min-w-[240px] max-w-[min(100vw-2rem,20rem)] rounded-xl border border-wl-surface bg-wl-card p-2 shadow-xl shadow-slate-900/10">
           <input
             ref={searchRef}
             type="search"
@@ -102,25 +102,25 @@ export function FilterMultiSelect<T extends string>({
             placeholder={searchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="mb-2 w-full rounded-xl border border-wl-surface/60 bg-wl-page px-3 py-2 text-xs text-wl-ink outline-none ring-wl-teal-muted/30 placeholder:text-wl-ink-muted/70 focus:ring-2"
+            className="mb-2 w-full rounded-lg border border-wl-surface bg-wl-page px-3 py-2 text-xs text-wl-ink outline-none ring-wl-teal/30 placeholder:text-wl-ink-muted/70 focus:ring-2"
           />
-          <div className="mb-2 flex gap-2 border-b border-wl-surface/40 pb-2">
+          <div className="mb-2 flex gap-3 border-b border-wl-surface pb-2">
             <button
               type="button"
-              className="text-[11px] font-semibold uppercase text-wl-teal-muted hover:underline"
+              className="text-[11px] font-semibold text-wl-teal hover:text-wl-teal-muted hover:underline"
               onClick={() => onChange(null)}
             >
               All
             </button>
             <button
               type="button"
-              className="text-[11px] font-semibold uppercase text-wl-ink-muted hover:underline"
+              className="text-[11px] font-semibold text-wl-ink-muted hover:text-wl-ink hover:underline"
               onClick={() => onChange([])}
             >
               None
             </button>
           </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto">
+          <div className="max-h-56 space-y-0.5 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <p className="px-2 py-3 text-center text-xs text-wl-ink-muted">
                 No matches
@@ -132,11 +132,11 @@ export function FilterMultiSelect<T extends string>({
                 return (
                   <label
                     key={o.id}
-                    className="flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 text-xs hover:bg-wl-teal/10"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-wl-teal-soft"
                   >
                     <input
                       type="checkbox"
-                      className="rounded border-wl-surface text-wl-teal-muted"
+                      className="rounded border-wl-surface text-wl-teal"
                       checked={checked}
                       onChange={() => {
                         if (selected === null) {
