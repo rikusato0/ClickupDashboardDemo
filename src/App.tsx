@@ -1093,7 +1093,25 @@ export default function App() {
                     {fmtInt(respAlertThreshold)}-minute threshold.
                   </p>
                 ) : (
-                  <ul className="space-y-2">
+                  <div className="rounded-xl border border-wl-surface bg-wl-page p-2">
+                    <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-wl-ink-muted">
+                      <span>
+                        <span className="font-semibold text-wl-orange">
+                          {fmtInt(respAlerts.length)}
+                        </span>{' '}
+                        of {fmtInt(respByClient.length)} clients{' '}
+                        {respAlertDirection} {fmtInt(respAlertThreshold)}m
+                      </span>
+                      {respAlerts.length > 5 && (
+                        <span className="text-[10px] uppercase tracking-wide">
+                          Scroll for more
+                        </span>
+                      )}
+                    </div>
+                    <ul
+                      className="max-h-72 space-y-2 overflow-y-auto pr-1"
+                      role="list"
+                    >
                     {respAlerts.map((a) => (
                       <li
                         key={a.clientId}
@@ -1118,7 +1136,8 @@ export default function App() {
                         </span>
                       </li>
                     ))}
-                  </ul>
+                    </ul>
+                  </div>
                 )}
               </div>
               <p className="mt-3 text-[11px] text-wl-ink-muted">
