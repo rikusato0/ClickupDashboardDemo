@@ -84,6 +84,56 @@ function cn(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(' ')
 }
 
+/**
+ * XAxis tick that renders names horizontally and word-wraps at ~14 chars so long
+ * client names like "Maple Street Credit Union" don't overflow their column.
+ * Caps at two lines; anything left over is folded onto the second line.
+ */
+function WrappedAxisTick(props: {
+  x?: number
+  y?: number
+  payload?: { value: string }
+  fontSize?: number
+  maxCharsPerLine?: number
+}) {
+  const { x = 0, y = 0, payload, fontSize = 11, maxCharsPerLine = 14 } = props
+  const text = payload?.value ?? ''
+  const words = text.split(' ')
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (next.length > maxCharsPerLine && current) {
+      lines.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  }
+  if (current) lines.push(current)
+  if (lines.length > 2) {
+    lines[1] = lines.slice(1).join(' ')
+    lines.length = 2
+  }
+  const lineHeight = fontSize + 2
+  return (
+    <g transform={`translate(${x},${y + 4})`}>
+      {lines.map((line, i) => (
+        <text
+          key={i}
+          x={0}
+          y={i * lineHeight + lineHeight}
+          textAnchor="middle"
+          fill="#64748b"
+          fontSize={fontSize}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
+  )
+}
+
 function Card({
   children,
   className,
@@ -540,7 +590,7 @@ export default function App() {
                   </p>
                 </Card>
                 <Card title="Hours by client" className="lg:col-span-3">
-                  <div className="h-[22rem]">
+                  <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={byClient}
@@ -549,12 +599,10 @@ export default function App() {
                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                         <XAxis
                           dataKey="name"
-                          tick={CHART_TICK_SM}
+                          tick={<WrappedAxisTick fontSize={11} />}
                           interval={0}
-                          angle={-35}
-                          textAnchor="end"
-                          height={110}
-                          tickMargin={8}
+                          height={56}
+                          tickMargin={6}
                         />
                         <YAxis
                           tick={CHART_TICK}
@@ -625,7 +673,7 @@ export default function App() {
             {tsSub === 'by_type' && (
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card title="Stacked hours — task type × client">
-                  <div className="h-[26rem]">
+                  <div className="h-96">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={byClientType.slice(0, 8)}
@@ -634,12 +682,10 @@ export default function App() {
                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                         <XAxis
                           dataKey="client"
-                          tick={CHART_TICK_SM}
+                          tick={<WrappedAxisTick fontSize={11} maxCharsPerLine={12} />}
                           interval={0}
-                          angle={-35}
-                          textAnchor="end"
-                          height={110}
-                          tickMargin={8}
+                          height={56}
+                          tickMargin={6}
                         />
                         <YAxis
                           tick={CHART_TICK}
