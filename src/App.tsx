@@ -631,7 +631,7 @@ export default function App() {
                   type="button"
                   onClick={() => setTsSub(id)}
                   className={cn(
-                    'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
+                    'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
                     tsSub === id
                       ? 'bg-wl-teal-soft text-wl-teal-muted'
                       : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
@@ -1034,7 +1034,7 @@ export default function App() {
                   type="button"
                   onClick={() => setCommsSub(id)}
                   className={cn(
-                    'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
+                    'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
                     commsSub === id
                       ? 'bg-wl-teal-soft text-wl-teal-muted'
                       : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
@@ -1163,7 +1163,7 @@ export default function App() {
                   type="button"
                   onClick={() => setRespStaffFilter(null)}
                   className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                    'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
                     respStaffFilter === null
                       ? 'bg-wl-teal-soft text-wl-teal-muted'
                       : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
@@ -1189,7 +1189,7 @@ export default function App() {
                         }
                       }}
                       className={cn(
-                        'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
                         on
                           ? 'bg-wl-teal-soft text-wl-teal-muted'
                           : 'border border-wl-surface bg-wl-card text-wl-ink-muted hover:text-wl-ink',
@@ -1379,7 +1379,7 @@ export default function App() {
                   type="button"
                   onClick={() => setCommsSub(id)}
                   className={cn(
-                    'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
+                    'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
                     commsSub === id
                       ? 'bg-wl-teal-soft text-wl-teal-muted'
                       : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
