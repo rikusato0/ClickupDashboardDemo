@@ -585,7 +585,7 @@ export default function App() {
                   ['overview', 'Summary'],
                   ['by_client', 'By client'],
                   ['by_type', 'Task types × client'],
-                  ['by_staff', 'By employee'],
+                  ['by_staff', 'By staff'],
                   ['export', 'Daily export'],
                 ] as const
               ).map(([id, label]) => (
@@ -800,12 +800,12 @@ export default function App() {
             )}
 
             {tsSub === 'by_staff' && (
-              <Card title="Employee summary">
+              <Card title="Staff summary">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                        <th className="pb-3 pr-4">Employee</th>
+                        <th className="pb-3 pr-4">Staff</th>
                         <th className="pb-3 pr-4">Hours</th>
                         <th className="pb-3 pr-4">Entries</th>
                         <th className="pb-3">Avg / entry</th>
@@ -849,13 +849,13 @@ export default function App() {
             {tsSub === 'export' && (
               <Card
                 title="Daily export"
-                subtitle="Per-employee weekday hours and period total. Pick one or more staff, then export."
+                subtitle="Per-staff weekday hours and period total. Pick one or more staff, then export."
                 action={
                   <button
                     type="button"
                     disabled={exportData.rows.length === 0}
                     onClick={() => {
-                      const header = ['Employee', ...exportData.labels, 'Total']
+                      const header = ['Staff', ...exportData.labels, 'Total']
                       const body = exportData.rows.map((r) => [
                         String(r.name),
                         ...exportData.labels.map((l) => r[l] ?? ''),
@@ -882,7 +882,7 @@ export default function App() {
               >
                 <div className="mb-4 flex flex-wrap items-center gap-3">
                   <span className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                    Employees
+                    Staff
                   </span>
                   <FilterMultiSelect
                     menuId="export-staff"
@@ -899,7 +899,7 @@ export default function App() {
                   />
                   <span className="text-[11px] text-wl-ink-muted">
                     {exportData.rows.length === 0
-                      ? 'No employees selected'
+                      ? 'No staff selected'
                       : `${fmtInt(exportData.rows.length)} of ${fmtInt(staff.length)} shown`}
                   </span>
                 </div>
@@ -908,7 +908,7 @@ export default function App() {
                     <thead>
                       <tr>
                         <th className="border border-wl-surface bg-wl-page px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                          Employee / day
+                          Staff / day
                         </th>
                         {exportData.labels.map((l) => (
                           <th
@@ -930,7 +930,7 @@ export default function App() {
                             colSpan={exportData.labels.length + 2}
                             className="border border-wl-surface px-3 py-6 text-center text-xs text-wl-ink-muted"
                           >
-                            Select at least one employee to see daily hours.
+                            Select at least one staff member to see daily hours.
                           </td>
                         </tr>
                       ) : (
@@ -1062,7 +1062,7 @@ export default function App() {
             </Card>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card title="Median response by employee">
+              <Card title="Median response by staff">
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -1228,7 +1228,7 @@ export default function App() {
           <div className="space-y-6">
             <Card
               title="Email volume vs logged time"
-              subtitle="Recent weeks — team totals and per employee."
+              subtitle="Recent weeks — team totals and per staff member."
             >
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="h-72">
