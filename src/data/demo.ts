@@ -1,4 +1,4 @@
-import { eachDayOfInterval, format, subWeeks } from 'date-fns'
+import { eachDayOfInterval, format, subDays, subWeeks } from 'date-fns'
 
 export const TASK_TYPES = [
   'One-time',
@@ -63,6 +63,30 @@ export interface WeeklyEmailVol {
   sent: number
   received: number
   loggedHours: number
+}
+
+/**
+ * One row per weekday for the last ~6 months. `medianMinutes` is the team-wide
+ * median first-response time across all client contacts for that day. The
+ * generator fakes a slowly-improving trend (bookkeeping firm tightening up
+ * its SLA) plus day-of-week and noise effects so the chart actually has a
+ * shape to discuss in demos.
+ */
+export interface DailyResponseTime {
+  date: string
+  medianMinutes: number
+  sampleSize: number
+}
+
+/**
+ * Per-client, per-week count of inbound emails the firm received from that
+ * client. Drives the "how much are clients pinging us?" view on the email
+ * volume sub-tab.
+ */
+export interface WeeklyClientInbound {
+  clientId: string
+  weekStart: string
+  received: number
 }
 
 export interface OnboardingClient {
@@ -350,5 +374,55 @@ export const onboardingClients: OnboardingClient[] = [
     ],
   },
 ]
+
+/** ~6 months of daily team-median response times, weekdays only. */
+export const dailyResponseTimes: DailyResponseTime[] = (() => {
+  const end = demoEnd
+  const start = subDays(end, 180)
+  const days = eachDayOfInterval({ start, end }).filter(
+    (d) => d.getDay() !== 0 && d.getDay() !== 6,
+  )
+  const total = days.length
+  return days.map((d, i) => {
+    const rng = mulberry32(hashSeed(`drt-${format(d, 'yyyy-MM-dd')}`))
+    const t = total > 1 ? i / (total - 1) : 0
+    // 6 months ago: ~210 min · today: ~95 min — slow improvement curve.
+    const trend = 210 - t * 115
+    const dow = d.getDay()
+    const dowAdj =
+      dow === 1 ? 28 : dow === 2 ? 14 : dow === 4 ? -6 : dow === 5 ? -18 : 0
+    // Occasional bad days so the line isn't perfectly smooth.
+    const spike = rng() < 0.07 ? 60 + rng() * 90 : 0
+    const noise = (rng() - 0.5) * 38
+    const median = Math.max(18, Math.round(trend + dowAdj + spike + noise))
+    return {
+      date: format(d, 'yyyy-MM-dd'),
+      medianMinutes: median,
+      sampleSize: 22 + Math.floor(rng() * 58),
+    }
+  })
+})()
+
+/** Per-client weekly inbound email counts, last 12 weeks. */
+export const weeklyClientInboundEmails: WeeklyClientInbound[] = (() => {
+  const out: WeeklyClientInbound[] = []
+  for (let w = 11; w >= 0; w--) {
+    const ws = format(subWeeks(demoEnd, w), 'yyyy-MM-dd')
+    for (const c of clients) {
+      const rng = mulberry32(hashSeed(`inb-${c.id}-${ws}`))
+      // High-touch clients get more inbound; weekly noise + slight upward drift.
+      const heavy =
+        c.id === 'c1' || c.id === 'c2' || c.id === 'c4' || c.id === 'c7'
+      const base = (heavy ? 70 : 32) + Math.floor(rng() * (heavy ? 60 : 35))
+      const drift = Math.round((11 - w) * (heavy ? 1.4 : 0.6))
+      out.push({
+        clientId: c.id,
+        weekStart: ws,
+        received: Math.max(0, base + drift),
+      })
+    }
+  }
+  return out
+})()
 
 export const demoDateRange = { start: demoStart, end: demoEnd }

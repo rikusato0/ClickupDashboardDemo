@@ -6,15 +6,18 @@ export {
   TASK_TYPES,
   type Client,
   type ClientContact,
+  type DailyResponseTime,
   type OnboardingClient,
   type ResponseSample,
   type SentimentCell,
   type Staff,
   type TaskType,
   type TimeEntry,
+  type WeeklyClientInbound,
   type WeeklyEmailVol,
   clientContacts,
   clients,
+  dailyResponseTimes,
   demoDateRange,
   onboardingClients,
   responseByContact,
@@ -22,6 +25,7 @@ export {
   staff,
   teamMedianResponseMinutes,
   timeEntries,
+  weeklyClientInboundEmails,
   weeklyEmailVolume,
 } from './demo'
 
@@ -33,6 +37,7 @@ export {
 import {
   clientContacts,
   clients,
+  dailyResponseTimes,
   demoDateRange,
   onboardingClients,
   responseByContact,
@@ -40,6 +45,7 @@ import {
   staff,
   teamMedianResponseMinutes,
   timeEntries,
+  weeklyClientInboundEmails,
   weeklyEmailVolume,
 } from './demo'
 import { onboardingDetailsById } from './onboardingDetails'
@@ -54,6 +60,8 @@ export type MockDashboardSnapshot = {
   responseByContact: typeof responseByContact
   sentimentCells: typeof sentimentCells
   weeklyEmailVolume: typeof weeklyEmailVolume
+  dailyResponseTimes: typeof dailyResponseTimes
+  weeklyClientInboundEmails: typeof weeklyClientInboundEmails
   onboardingClients: typeof onboardingClients
   onboardingDetailsById: typeof onboardingDetailsById
 }
@@ -72,6 +80,8 @@ export function getMockDashboardSnapshot(): MockDashboardSnapshot {
     responseByContact,
     sentimentCells,
     weeklyEmailVolume,
+    dailyResponseTimes,
+    weeklyClientInboundEmails,
     onboardingClients,
     onboardingDetailsById,
   }

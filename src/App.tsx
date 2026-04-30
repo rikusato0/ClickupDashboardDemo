@@ -7,6 +7,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,6 +22,8 @@ import {
   HeartPulse,
   Inbox,
   Rocket,
+  TrendingDown,
+  TrendingUp,
   Users,
   X,
 } from 'lucide-react'
@@ -30,6 +33,7 @@ import {
   TASK_TYPES,
   clientContacts,
   clients,
+  dailyResponseTimes,
   getMockDashboardSnapshot,
   getTeamMedianResponseMinutes,
   onboardingDetailsById,
@@ -38,6 +42,7 @@ import {
   staff,
   timeEntries,
   type TimeEntry,
+  weeklyClientInboundEmails,
   weeklyEmailVolume,
 } from './data/mockDashboard'
 import { BrandLogo } from './components/BrandLogo'
@@ -492,6 +497,72 @@ export default function App() {
         : r.median < respAlertThreshold,
     )
   }, [respByClient, respAlertDirection, respAlertThreshold])
+
+  /**
+   * 6-month daily series with a 14-day rolling average so the chart can
+   * render both the raw daily noise and a smoothed trend line.
+   */
+  const respTrend = useMemo(() => {
+    const window = 14
+    const series = dailyResponseTimes.map((d, i) => {
+      const slice = dailyResponseTimes.slice(Math.max(0, i - window + 1), i + 1)
+      const avg =
+        slice.reduce((a, x) => a + x.medianMinutes, 0) / Math.max(1, slice.length)
+      return {
+        date: d.date,
+        medianMinutes: d.medianMinutes,
+        rolling14: Math.round(avg),
+        sampleSize: d.sampleSize,
+      }
+    })
+    if (series.length === 0) {
+      return { series, first14Avg: 0, last14Avg: 0, change: 0 }
+    }
+    const first14 = series.slice(0, 14)
+    const last14 = series.slice(-14)
+    const first14Avg = Math.round(
+      first14.reduce((a, x) => a + x.medianMinutes, 0) / first14.length,
+    )
+    const last14Avg = Math.round(
+      last14.reduce((a, x) => a + x.medianMinutes, 0) / last14.length,
+    )
+    const change =
+      first14Avg > 0 ? (last14Avg - first14Avg) / first14Avg : 0
+    return { series, first14Avg, last14Avg, change }
+  }, [])
+
+  /**
+   * Inbound emails from clients: weekly totals (drives the line chart) and
+   * a per-client leaderboard summed over the last 4 weeks.
+   */
+  const inboundWeekly = useMemo(() => {
+    const weeks = [
+      ...new Set(weeklyClientInboundEmails.map((w) => w.weekStart)),
+    ].sort()
+    return weeks.map((week) => {
+      const total = weeklyClientInboundEmails
+        .filter((x) => x.weekStart === week)
+        .reduce((a, x) => a + x.received, 0)
+      return { week, total }
+    })
+  }, [])
+
+  const inboundTopClients = useMemo(() => {
+    const recent = inboundWeekly.slice(-4).map((w) => w.week)
+    const totals = new Map<string, number>()
+    for (const row of weeklyClientInboundEmails) {
+      if (!recent.includes(row.weekStart)) continue
+      totals.set(row.clientId, (totals.get(row.clientId) ?? 0) + row.received)
+    }
+    return clients
+      .map((c) => ({
+        clientId: c.id,
+        clientName: c.name,
+        received: totals.get(c.id) ?? 0,
+      }))
+      .filter((r) => r.received > 0)
+      .sort((a, b) => b.received - a.received)
+  }, [inboundWeekly])
 
   const emailChartData = useMemo(() => {
     const weeks = [...new Set(weeklyEmailVolume.map((w) => w.weekStart))].sort()
@@ -1342,6 +1413,151 @@ export default function App() {
               </span>
             </div>
 
+            <Card
+              title="Response time trend"
+              subtitle="Daily team median over the last 6 months — are we trending up or down?"
+            >
+              {(() => {
+                const sevNow = responseSeverity(respTrend.last14Avg)
+                const improving = respTrend.change < 0
+                const flat = Math.abs(respTrend.change) < 0.02
+                const TrendIcon = flat
+                  ? null
+                  : improving
+                    ? TrendingDown
+                    : TrendingUp
+                const pct = Math.abs(respTrend.change) * 100
+                const direction = flat
+                  ? 'flat'
+                  : improving
+                    ? 'improvement'
+                    : 'regression'
+                const directionColor = flat
+                  ? 'text-wl-ink-muted'
+                  : improving
+                    ? 'text-emerald-600'
+                    : 'text-wl-orange'
+                return (
+                  <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                        Last 14d avg
+                      </span>
+                      <span
+                        className={cn(
+                          'text-2xl font-bold tabular-nums',
+                          SEVERITY_TEXT[sevNow],
+                        )}
+                      >
+                        {fmtMinutes(respTrend.last14Avg)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-wl-ink-muted">
+                      vs first 14d:{' '}
+                      <span className="font-semibold text-wl-ink">
+                        {fmtMinutes(respTrend.first14Avg)}
+                      </span>
+                    </span>
+                    {TrendIcon && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 rounded-md bg-wl-page px-2 py-0.5 text-xs font-semibold tabular-nums',
+                          directionColor,
+                        )}
+                      >
+                        <TrendIcon className="h-3.5 w-3.5" />
+                        {fmtFixed(pct, 1)}% {direction}
+                      </span>
+                    )}
+                    {flat && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-wl-page px-2 py-0.5 text-xs font-semibold text-wl-ink-muted">
+                        Roughly flat
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={respTrend.series}
+                    margin={{ left: 8, right: 24, top: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                    <XAxis
+                      dataKey="date"
+                      tick={CHART_TICK_SM}
+                      minTickGap={48}
+                      tickFormatter={(d) => format(parseISO(String(d)), 'MMM d')}
+                    />
+                    <YAxis
+                      tick={CHART_TICK}
+                      width={64}
+                      tickFormatter={(v) => fmtMinutes(Number(v))}
+                      domain={[0, (max: number) => Math.ceil((max + 30) / 30) * 30]}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      labelFormatter={(d) =>
+                        format(parseISO(String(d)), 'EEE, MMM d, yyyy')
+                      }
+                      formatter={(value, name) => [
+                        fmtMinutes(Number(value)),
+                        name,
+                      ]}
+                    />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      height={28}
+                      wrapperStyle={{ fontSize: 11 }}
+                    />
+                    <ReferenceLine
+                      y={FAST_MAX_MIN}
+                      stroke="#10b981"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: 'Fast (2h)',
+                        fill: '#059669',
+                        fontSize: 10,
+                        position: 'right',
+                      }}
+                    />
+                    <ReferenceLine
+                      y={WARNING_MAX_MIN}
+                      stroke="#ff8500"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: 'Critical (4h)',
+                        fill: '#ff8500',
+                        fontSize: 10,
+                        position: 'right',
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="medianMinutes"
+                      name="Daily median"
+                      stroke="#06b6d4"
+                      strokeOpacity={0.45}
+                      strokeWidth={1.5}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="rolling14"
+                      name="14-day avg"
+                      stroke="#0e7490"
+                      strokeWidth={2.5}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
             <Card title="Filter — staff included in rollups">
               <div className="flex flex-wrap gap-2">
                 <button
@@ -1676,6 +1892,100 @@ export default function App() {
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              title="Inbound emails from clients"
+              subtitle="Last 12 weeks — how many messages clients are sending us."
+            >
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={inboundWeekly}
+                      margin={{ left: 8, right: 16, top: 8, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                      <XAxis
+                        dataKey="week"
+                        tick={CHART_TICK_SM}
+                        tickFormatter={(d) =>
+                          format(parseISO(String(d)), 'MMM d')
+                        }
+                      />
+                      <YAxis
+                        tick={CHART_TICK}
+                        tickFormatter={(v) => fmtInt(Number(v))}
+                      />
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        labelFormatter={(d) =>
+                          `Week of ${format(parseISO(String(d)), 'MMM d, yyyy')}`
+                        }
+                        formatter={(value) => [
+                          fmtInt(Number(value)),
+                          'Inbound emails',
+                        ]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        name="Inbound emails"
+                        stroke="#06b6d4"
+                        strokeWidth={2.5}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
+                    <span>Top clients · last 4 weeks</span>
+                    <span className="tabular-nums">
+                      {fmtInt(
+                        inboundTopClients.reduce(
+                          (a, x) => a + x.received,
+                          0,
+                        ),
+                      )}{' '}
+                      total
+                    </span>
+                  </div>
+                  <ul className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
+                    {inboundTopClients.map((c, i) => {
+                      const max = inboundTopClients[0]?.received ?? 1
+                      const pct = max ? (c.received / max) * 100 : 0
+                      return (
+                        <li
+                          key={c.clientId}
+                          className="rounded-lg border border-wl-surface bg-wl-page px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between gap-2 text-sm">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-wl-teal-soft text-[10px] font-bold tabular-nums text-wl-teal-muted">
+                                {i + 1}
+                              </span>
+                              <span className="truncate font-medium text-wl-ink">
+                                {c.clientName}
+                              </span>
+                            </span>
+                            <span className="shrink-0 tabular-nums font-semibold text-wl-ink">
+                              {fmtInt(c.received)}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-wl-surface">
+                            <div
+                              className="h-full rounded-full bg-wl-teal"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
                 </div>
               </div>
             </Card>
