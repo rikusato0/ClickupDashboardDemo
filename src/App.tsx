@@ -846,7 +846,9 @@ export default function App() {
               </Card>
               <Card title="Fastest quartile (staff)">
                 <p className="font-display text-3xl font-bold text-wl-teal-muted">
-                  {respByStaff[0]?.median ?? '—'}m
+                  {respByStaff[0]?.median != null
+                    ? `${fmtInt(respByStaff[0].median)}m`
+                    : '—'}
                 </p>
                 <p className="mt-1 truncate text-xs text-wl-ink-muted">
                   {respByStaff[0]?.name}
@@ -854,7 +856,9 @@ export default function App() {
               </Card>
               <Card title="Slowest median (staff)">
                 <p className="font-display text-3xl font-bold text-wl-orange">
-                  {respByStaff[respByStaff.length - 1]?.median ?? '—'}m
+                  {respByStaff[respByStaff.length - 1]?.median != null
+                    ? `${fmtInt(respByStaff[respByStaff.length - 1]!.median)}m`
+                    : '—'}
                 </p>
                 <p className="mt-1 truncate text-xs text-wl-ink-muted">
                   {respByStaff[respByStaff.length - 1]?.name}
@@ -917,14 +921,21 @@ export default function App() {
                       margin={{ left: 24 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-                      <XAxis type="number" tick={CHART_TICK} />
+                      <XAxis
+                        type="number"
+                        tick={CHART_TICK}
+                        tickFormatter={(v) => fmtInt(Number(v))}
+                      />
                       <YAxis
                         type="category"
                         dataKey="name"
                         width={120}
                         tick={CHART_TICK_SM}
                       />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(value) => fmtInt(Number(value))}
+                      />
                       <Bar dataKey="median" radius={[0, 6, 6, 0]}>
                         {respByStaff.map((_, i) => (
                           <Cell
@@ -962,7 +973,7 @@ export default function App() {
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="font-display tabular-nums font-semibold text-wl-teal-muted">
-                            {row.median}m
+                            {fmtInt(row.median)}m
                           </div>
                           <span
                             className={cn(
@@ -992,7 +1003,7 @@ export default function App() {
           <div className="space-y-6">
             <Card
               title="Client sentiment"
-              subtitle="Rolling windows (demo scores)."
+              subtitle="Rolling score by client and window length."
             >
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-2 text-sm">
@@ -1030,14 +1041,14 @@ export default function App() {
                                   background: sentimentColor(cell.score),
                                   boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
                                 }}
-                                title={`Vol: ${cell.volume} · trend: ${cell.trend}`}
+                                title={`Vol: ${fmtInt(cell.volume)} · trend: ${cell.trend}`}
                               >
                                 <span className="text-sm font-semibold text-slate-950">
                                   {cell.score > 0 ? '+' : ''}
-                                  {cell.score.toFixed(2)}
+                                  {fmtFixed(cell.score, 2)}
                                 </span>
                                 <span className="text-[10px] font-medium text-slate-900/80">
-                                  {cell.volume} msgs
+                                  {fmtInt(cell.volume)} msgs
                                 </span>
                               </div>
                             </td>
@@ -1075,13 +1086,25 @@ export default function App() {
                     <LineChart data={last4WeeksEmail}>
                       <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                       <XAxis dataKey="week" tick={CHART_TICK_SM} />
-                      <YAxis yAxisId="left" tick={CHART_TICK} />
+                      <YAxis
+                        yAxisId="left"
+                        tick={CHART_TICK}
+                        tickFormatter={(v) => fmtInt(Number(v))}
+                      />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
                         tick={CHART_TICK}
+                        tickFormatter={(v) => fmtFixed(Number(v), 1)}
                       />
-                      <Tooltip contentStyle={TOOLTIP_STYLE} />
+                      <Tooltip
+                        contentStyle={TOOLTIP_STYLE}
+                        formatter={(value: number, name: string) =>
+                          name === 'Team emails sent'
+                            ? fmtInt(Number(value))
+                            : fmtFixed(Number(value), 1)
+                        }
+                      />
                       <Legend />
                       <Line
                         yAxisId="left"
@@ -1122,7 +1145,8 @@ export default function App() {
                           <div>
                             <div className="font-medium text-wl-ink">{s.name}</div>
                             <div className="text-xs text-wl-ink-muted">
-                              Last 4 wks · {sent} sent · {Math.round(hrs * 10) / 10}h logged
+                              Last 4 wks · {fmtInt(sent)} sent ·{' '}
+                              {fmtFixed(Math.round(hrs * 10) / 10, 1)}h logged
                             </div>
                           </div>
                         </div>
@@ -1131,7 +1155,7 @@ export default function App() {
                             Sends / hour
                           </div>
                           <div className="font-display text-lg tabular-nums font-semibold text-wl-orange">
-                            {Math.round(ratio * 10) / 10}
+                            {fmtFixed(Math.round(ratio * 10) / 10, 1)}
                           </div>
                         </div>
                       </div>
@@ -1173,7 +1197,9 @@ export default function App() {
                       <div className="mt-3">
                         <div className="mb-1 flex justify-between text-xs text-wl-ink-muted">
                           <span>Progress</span>
-                          <span className="font-semibold">{ob.percentComplete}%</span>
+                          <span className="font-semibold">
+                            {fmtInt(ob.percentComplete)}%
+                          </span>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-wl-surface/40">
                           <div
