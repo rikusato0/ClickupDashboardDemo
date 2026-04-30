@@ -377,23 +377,23 @@ export default function App() {
     <div className="flex min-h-svh flex-col bg-wl-page text-wl-ink">
       <header className="sticky top-0 z-40 border-b border-wl-surface bg-wl-card">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-4 px-4 py-3 sm:px-6 lg:px-10">
-          <div className="flex shrink-0 items-center gap-3">
-            <BrandLogo className="h-11 w-11 shrink-0" />
+          <div className="flex shrink-0 items-center gap-2.5">
+            <BrandLogo className="h-9 w-9 shrink-0" />
             <div className="min-w-0 leading-tight">
-              <p className="font-display text-sm font-bold tracking-[0.1em] text-wl-teal">
+              <p className="font-display text-[11px] font-semibold tracking-[0.14em] text-wl-teal">
                 WHITE LOTUS
               </p>
-              <p className="-mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-wl-ink-muted">
+              <p className="-mt-0.5 text-[9px] font-medium tracking-[0.2em] text-wl-ink-muted">
                 BOOKKEEPING
               </p>
             </div>
           </div>
-          <span className="hidden h-8 w-px bg-wl-surface sm:block" aria-hidden />
+          <span className="hidden h-7 w-px bg-wl-surface sm:block" aria-hidden />
           <div className="min-w-0 flex-1 basis-[min(100%,18rem)] sm:basis-auto">
-            <h1 className="text-base font-bold tracking-tight text-wl-ink sm:text-lg">
+            <h1 className="text-sm font-semibold tracking-tight text-wl-ink sm:text-[15px]">
               Operational dashboard
             </h1>
-            <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted">
+            <p className="mt-0.5 text-[11px] leading-snug text-wl-ink-muted">
               Time, communications, and onboarding metrics in one place.
             </p>
           </div>
@@ -425,13 +425,13 @@ export default function App() {
                     setOpenFilterId(null)
                   }}
                   className={cn(
-                    'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-colors',
+                    'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-[13px] font-medium transition-colors',
                     active
                       ? 'border-wl-teal text-wl-teal'
                       : 'border-transparent text-wl-ink-muted hover:text-wl-ink',
                   )}
                 >
-                  <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                  <Icon className="h-3.5 w-3.5 shrink-0 opacity-90" />
                   {item.label}
                 </button>
               )
@@ -540,17 +540,21 @@ export default function App() {
                   </p>
                 </Card>
                 <Card title="Hours by client" className="lg:col-span-3">
-                  <div className="h-72">
+                  <div className="h-[22rem]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={byClient} margin={{ left: 8, right: 8 }}>
+                      <BarChart
+                        data={byClient}
+                        margin={{ left: 8, right: 8, bottom: 8 }}
+                      >
                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                         <XAxis
                           dataKey="name"
                           tick={CHART_TICK_SM}
                           interval={0}
-                          angle={-24}
+                          angle={-35}
                           textAnchor="end"
-                          height={70}
+                          height={110}
+                          tickMargin={8}
                         />
                         <YAxis
                           tick={CHART_TICK}
@@ -621,20 +625,21 @@ export default function App() {
             {tsSub === 'by_type' && (
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card title="Stacked hours — task type × client">
-                  <div className="h-80">
+                  <div className="h-[26rem]">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={byClientType.slice(0, 8)}
-                        margin={{ left: 8, right: 8 }}
+                        margin={{ left: 8, right: 8, bottom: 8 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                         <XAxis
                           dataKey="client"
                           tick={CHART_TICK_SM}
                           interval={0}
-                          angle={-20}
+                          angle={-35}
                           textAnchor="end"
-                          height={64}
+                          height={110}
+                          tickMargin={8}
                         />
                         <YAxis
                           tick={CHART_TICK}
@@ -646,7 +651,12 @@ export default function App() {
                             fmtFixed(Number(value), 1)
                           }
                         />
-                        <Legend />
+                        <Legend
+                          verticalAlign="top"
+                          align="right"
+                          height={32}
+                          wrapperStyle={{ fontSize: 11 }}
+                        />
                         {TASK_TYPES.map((t) => (
                           <Bar
                             key={t}
