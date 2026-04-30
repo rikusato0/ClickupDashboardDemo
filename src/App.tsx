@@ -13,13 +13,13 @@ import {
   YAxis,
 } from 'recharts'
 import {
+  Bell,
   Building2,
   ChevronRight,
   Clock,
   Download,
   HeartPulse,
   Inbox,
-  Mail,
   Rocket,
   Users,
   X,
@@ -48,16 +48,14 @@ import { fmtExportCell, fmtFixed, fmtInt } from './utils/format'
 
 type NavId =
   | 'timesheets'
-  | 'response'
+  | 'comms'
   | 'sentiment'
-  | 'email'
   | 'onboarding'
 
 const NAV: { id: NavId; label: string; icon: typeof Clock }[] = [
   { id: 'timesheets', label: 'Timesheets', icon: Clock },
-  { id: 'response', label: 'Response time', icon: Inbox },
+  { id: 'comms', label: 'Communications analysis', icon: Inbox },
   { id: 'sentiment', label: 'Client sentiment', icon: HeartPulse },
-  { id: 'email', label: 'Email volume', icon: Mail },
   { id: 'onboarding', label: 'Client onboarding', icon: Rocket },
 ]
 
@@ -251,7 +249,12 @@ export default function App() {
     'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export'
   >('overview')
   const [exportStaffIds, setExportStaffIds] = useState<string[] | null>(null)
+  const [commsSub, setCommsSub] = useState<'response' | 'email'>('response')
   const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
+  const [respAlertDirection, setRespAlertDirection] = useState<'above' | 'below'>(
+    'above',
+  )
+  const [respAlertThreshold, setRespAlertThreshold] = useState<number>(90)
   const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
     () =>
       getMockDashboardSnapshot().onboardingClients.map((c) => ({
@@ -414,6 +417,40 @@ export default function App() {
       }
     })
   }, [])
+
+  const respByClient = useMemo(() => {
+    const groups = new Map<string, number[]>()
+    for (const row of respByContactPriority) {
+      if (row.median <= 0) continue
+      const list = groups.get(row.clientId) ?? []
+      list.push(row.median)
+      groups.set(row.clientId, list)
+    }
+    return clients
+      .map((c) => {
+        const samples = (groups.get(c.id) ?? []).sort((a, b) => a - b)
+        const median =
+          samples.length === 0
+            ? 0
+            : samples[Math.floor(samples.length / 2)]!
+        return {
+          clientId: c.id,
+          clientName: c.name,
+          median,
+          samples: samples.length,
+        }
+      })
+      .filter((r) => r.samples > 0)
+      .sort((a, b) => b.median - a.median)
+  }, [respByContactPriority])
+
+  const respAlerts = useMemo(() => {
+    return respByClient.filter((r) =>
+      respAlertDirection === 'above'
+        ? r.median > respAlertThreshold
+        : r.median < respAlertThreshold,
+    )
+  }, [respByClient, respAlertDirection, respAlertThreshold])
 
   const emailChartData = useMemo(() => {
     const weeks = [...new Set(weeklyEmailVolume.map((w) => w.weekStart))].sort()
@@ -983,8 +1020,112 @@ export default function App() {
           </div>
         )}
 
-        {nav === 'response' && (
+        {nav === 'comms' && commsSub === 'response' && (
           <div className="space-y-6">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['response', 'Response time'],
+                  ['email', 'Email volume'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCommsSub(id)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
+                    commsSub === id
+                      ? 'bg-wl-teal-soft text-wl-teal-muted'
+                      : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <Card
+              title="Response-time alerts"
+              subtitle="Get notified when a client's median response time crosses your threshold."
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-wl-orange/10 text-wl-orange">
+                  <Bell className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-wl-ink">
+                  Alert when client median is
+                </span>
+                <select
+                  value={respAlertDirection}
+                  onChange={(e) =>
+                    setRespAlertDirection(
+                      e.target.value as 'above' | 'below',
+                    )
+                  }
+                  className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
+                  aria-label="Alert direction"
+                >
+                  <option value="above">above</option>
+                  <option value="below">below</option>
+                </select>
+                <input
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={respAlertThreshold}
+                  onChange={(e) =>
+                    setRespAlertThreshold(
+                      Math.max(0, Number(e.target.value) || 0),
+                    )
+                  }
+                  className="w-24 rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium tabular-nums text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
+                  aria-label="Threshold in minutes"
+                />
+                <span className="text-sm font-medium text-wl-ink-muted">
+                  minutes
+                </span>
+              </div>
+              <div className="mt-4">
+                {respAlerts.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-wl-surface bg-wl-page py-6 text-center text-xs text-wl-ink-muted">
+                    No clients are currently {respAlertDirection} the{' '}
+                    {fmtInt(respAlertThreshold)}-minute threshold.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {respAlerts.map((a) => (
+                      <li
+                        key={a.clientId}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-wl-orange/30 bg-wl-orange/5 px-3 py-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wl-orange/15 text-wl-orange">
+                            <Bell className="h-3.5 w-3.5" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-wl-ink">
+                              {a.clientName}
+                            </div>
+                            <div className="truncate text-xs text-wl-ink-muted">
+                              Median {fmtInt(Math.round(a.median))}m · threshold{' '}
+                              {fmtInt(respAlertThreshold)}m
+                            </div>
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-wl-orange/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-wl-orange">
+                          Breach
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="mt-3 text-[11px] text-wl-ink-muted">
+                Demo only — settings reset on reload. In production these would post to your firm's notification service.
+              </p>
+            </Card>
+
             <div className="grid gap-6 lg:grid-cols-3">
               <Card title="Team median response">
                 <p className="text-3xl font-bold text-wl-ink">
@@ -1224,8 +1365,31 @@ export default function App() {
           </div>
         )}
 
-        {nav === 'email' && (
+        {nav === 'comms' && commsSub === 'email' && (
           <div className="space-y-6">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['response', 'Response time'],
+                  ['email', 'Email volume'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCommsSub(id)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
+                    commsSub === id
+                      ? 'bg-wl-teal-soft text-wl-teal-muted'
+                      : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <Card
               title="Email volume vs logged time"
               subtitle="Recent weeks — team totals and per staff member."
