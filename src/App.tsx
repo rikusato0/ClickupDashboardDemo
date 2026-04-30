@@ -62,21 +62,22 @@ const NAV: { id: NavId; label: string; icon: typeof Clock }[] = [
 ]
 
 const TASK_COLORS: Record<TaskType, string> = {
-  'One-time': '#6ed1d6',
-  Recurring: '#6daaac',
+  'One-time': '#06b6d4',
+  Recurring: '#0891b2',
   OT: '#ff8500',
-  'Month end': '#4a8f94',
-  Payroll: '#8ab8b8',
+  'Month end': '#0e7490',
+  Payroll: '#67e8f9',
 }
 
-const CHART_GRID = '#c8d6d6'
-const CHART_TICK = { fill: '#5c6f6f', fontSize: 11 }
-const CHART_TICK_SM = { fill: '#5c6f6f', fontSize: 10 }
+const CHART_PRIMARY = '#06b6d4'
+const CHART_GRID = '#e5e7eb'
+const CHART_TICK = { fill: '#64748b', fontSize: 11 }
+const CHART_TICK_SM = { fill: '#64748b', fontSize: 10 }
 const TOOLTIP_STYLE = {
   background: '#ffffff',
-  border: '1px solid #aabcbb',
+  border: '1px solid #e5e7eb',
   borderRadius: 12,
-  color: '#2d3a3a',
+  color: '#1e293b',
 }
 
 function cn(...parts: (string | false | undefined)[]) {
@@ -99,20 +100,20 @@ function Card({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-wl-surface/50 bg-wl-card shadow-sm shadow-wl-teal-muted/15',
+        'rounded-2xl border border-wl-surface bg-wl-card shadow-sm shadow-slate-900/5',
         className,
       )}
     >
       {(title || action) && (
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-wl-surface/40 px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-wl-surface px-5 py-4">
           <div>
             {title && (
-              <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-wl-teal">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wl-ink-muted">
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-xs text-wl-ink-muted">{subtitle}</p>
+              <p className="mt-1 text-xs text-wl-ink-muted">{subtitle}</p>
             )}
           </div>
           {action}
@@ -374,25 +375,25 @@ export default function App() {
 
   return (
     <div className="flex min-h-svh flex-col text-wl-ink">
-      <header className="sticky top-0 z-40 border-b border-wl-surface/50 bg-wl-card shadow-sm shadow-wl-teal-muted/10">
+      <header className="sticky top-0 z-40 border-b border-wl-surface bg-wl-card">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-4 px-4 py-3 sm:px-6 lg:px-10">
           <div className="flex shrink-0 items-center gap-3">
             <BrandLogo className="h-11 w-11 shrink-0" />
             <div className="min-w-0 leading-tight">
-              <p className="font-display text-[11px] font-bold tracking-[0.12em] sm:text-xs">
-                <span className="text-wl-orange">WHITE LOTUS</span>{' '}
-                <span className="text-wl-teal-muted">BOOKKEEPING</span>
+              <p className="font-display text-sm font-bold tracking-[0.1em] text-wl-teal">
+                WHITE LOTUS
               </p>
-              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-wl-ink-muted">
-                Firm reports
+              <p className="-mt-0.5 text-[11px] font-semibold tracking-[0.18em] text-wl-ink-muted">
+                BOOKKEEPING
               </p>
             </div>
           </div>
-          <div className="min-w-0 flex-1 basis-[min(100%,18rem)] px-0 sm:px-2 lg:basis-0 lg:px-6">
-            <h1 className="font-display text-lg font-bold tracking-tight text-wl-teal sm:text-xl">
+          <span className="hidden h-8 w-px bg-wl-surface sm:block" aria-hidden />
+          <div className="min-w-0 flex-1 basis-[min(100%,18rem)] sm:basis-auto">
+            <h1 className="text-base font-bold tracking-tight text-wl-ink sm:text-lg">
               Operational dashboard
             </h1>
-            <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted sm:max-w-xl sm:text-sm">
+            <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted">
               Time, communications, and onboarding metrics in one place.
             </p>
           </div>
@@ -408,8 +409,8 @@ export default function App() {
             className="ml-auto w-full min-w-0 shrink-0 sm:w-auto"
           />
         </div>
-        <div className="border-t border-wl-surface/40 bg-wl-page/80 px-4 sm:px-6 lg:px-10">
-          <nav className="flex gap-1 overflow-x-auto py-1" role="tablist" aria-label="Main">
+        <div className="border-t border-wl-surface bg-wl-card px-4 sm:px-6 lg:px-10">
+          <nav className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Main">
             {NAV.map((item) => {
               const Icon = item.icon
               const active = nav === item.id
@@ -427,7 +428,7 @@ export default function App() {
                     'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-colors',
                     active
                       ? 'border-wl-teal text-wl-teal'
-                      : 'border-transparent text-wl-ink-muted hover:border-wl-surface hover:text-wl-ink',
+                      : 'border-transparent text-wl-ink-muted hover:text-wl-ink',
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0 opacity-90" />
@@ -499,10 +500,10 @@ export default function App() {
                   type="button"
                   onClick={() => setTsSub(id)}
                   className={cn(
-                    'rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors',
+                    'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors',
                     tsSub === id
-                      ? 'border-2 border-wl-teal-muted bg-wl-teal-muted text-white shadow-md'
-                      : 'border-2 border-wl-orange bg-white text-wl-orange hover:bg-wl-orange/5',
+                      ? 'bg-wl-teal-soft text-wl-teal-muted'
+                      : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
                   )}
                 >
                   {label}
@@ -513,7 +514,7 @@ export default function App() {
             {tsSub === 'overview' && (
               <div className="grid gap-6 lg:grid-cols-3">
                 <Card title="Total hours (filtered)">
-                  <p className="font-display text-3xl font-bold text-wl-orange">
+                  <p className="text-3xl font-bold text-wl-ink">
                     {fmtFixed(
                       Math.round(
                         filtered.reduce((a, e) => a + e.hours, 0) * 10,
@@ -526,7 +527,7 @@ export default function App() {
                   </p>
                 </Card>
                 <Card title="Active clients">
-                  <p className="font-display text-3xl font-bold text-wl-teal">
+                  <p className="text-3xl font-bold text-wl-ink">
                     {fmtInt(byClient.length)}
                   </p>
                   <p className="mt-1 text-xs text-wl-ink-muted">
@@ -534,7 +535,7 @@ export default function App() {
                   </p>
                 </Card>
                 <Card title="Staff contributing">
-                  <p className="font-display text-3xl font-bold text-wl-teal-muted">
+                  <p className="text-3xl font-bold text-wl-ink">
                     {fmtInt(byStaff.length)}
                   </p>
                 </Card>
@@ -561,7 +562,7 @@ export default function App() {
                             fmtFixed(Number(value), 1)
                           }
                         />
-                        <Bar dataKey="hours" fill="#6daaac" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="hours" fill={CHART_PRIMARY} radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -597,9 +598,9 @@ export default function App() {
                             </td>
                             <td className="py-2">
                               <div className="flex items-center gap-2">
-                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface/50">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
                                   <div
-                                    className="h-full rounded-full bg-wl-teal-muted"
+                                    className="h-full rounded-full bg-wl-teal"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -686,7 +687,7 @@ export default function App() {
                                 {fmtFixed(row[t] as number, 1)}
                               </td>
                             ))}
-                            <td className="py-2 tabular-nums font-semibold text-wl-orange">
+                            <td className="py-2 tabular-nums font-semibold text-wl-ink">
                               {fmtFixed(row.total as number, 1)}
                             </td>
                           </tr>
@@ -717,7 +718,7 @@ export default function App() {
                           className="border-b border-wl-surface/30 text-wl-ink"
                         >
                           <td className="py-2 pr-4">
-                            <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-wl-teal/25 text-xs font-bold text-wl-teal-muted">
+                            <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-wl-teal-soft text-xs font-bold text-wl-teal-muted">
                               {r.initials}
                             </span>
                             {r.name}

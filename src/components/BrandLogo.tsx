@@ -10,7 +10,7 @@ export function BrandLogo({ className }: { className?: string }) {
       aria-hidden
     >
       <path
-        stroke="#6ed1d6"
+        stroke="#06b6d4"
         strokeWidth={2}
         strokeLinejoin="round"
         d="M24 3 42.5 13.75v20.5L24 45 5.5 34.25v-20.5L24 3z"

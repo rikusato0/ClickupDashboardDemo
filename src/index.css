@@ -1,20 +1,22 @@
 @import 'tailwindcss';
 
-/* White Lotus Bookkeeping brand colors. Gotham → Montserrat (Google Fonts)
-   until a licensed web font stack is available. */
+/* White Lotus Bookkeeping brand tokens (aligned with the firm's flagship
+   bookkeeping dashboard: brighter cyan primary, neutral page surface,
+   dark navy ink, orange reserved for accents/warnings). */
 @theme {
   --font-sans:
     'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-display: var(--font-sans);
 
-  --color-wl-teal: #6ed1d6;
+  --color-wl-teal: #06b6d4;
+  --color-wl-teal-muted: #0e7490;
+  --color-wl-teal-soft: #cffafe;
   --color-wl-orange: #ff8500;
-  --color-wl-teal-muted: #6daaac;
-  --color-wl-surface: #aabcbb;
-  --color-wl-page: #eef4f4;
+  --color-wl-surface: #e5e7eb;
+  --color-wl-page: #f7f8fa;
   --color-wl-card: #ffffff;
-  --color-wl-ink: #2d3a3a;
-  --color-wl-ink-muted: #5c6f6f;
+  --color-wl-ink: #1e293b;
+  --color-wl-ink-muted: #64748b;
 }
 
 html {
