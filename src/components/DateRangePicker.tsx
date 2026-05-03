@@ -8,6 +8,8 @@ import {
   isBefore,
   isSameDay,
   isSameMonth,
+  max as dfMax,
+  min as dfMin,
   parseISO,
   startOfDay,
   startOfMonth,
@@ -66,32 +68,35 @@ export function DateRangePicker({
   const fromD = parseISO(from)
   const toD = parseISO(to)
 
+  /** End of the reporting snapshot (preset “today”) — avoids empty charts when wall-clock is outside demo data. */
+  const baselineStart = startOfDay(parseISO(baselineFrom))
+  const baselineEnd = startOfDay(parseISO(baselineTo))
+  const anchor = baselineEnd
+
   const applyPreset = (start: Date, end: Date) => {
     const a = startOfDay(start)
     const b = startOfDay(end)
     const [lo, hi] = isBefore(a, b) ? [a, b] : [b, a]
-    onChange(format(lo, 'yyyy-MM-dd'), format(hi, 'yyyy-MM-dd'))
+    const clampedLo = dfMax([lo, baselineStart])
+    const clampedHi = dfMin([hi, baselineEnd])
+    if (isBefore(clampedHi, clampedLo)) {
+      onChange(baselineFrom, baselineTo)
+      return
+    }
+    onChange(format(clampedLo, 'yyyy-MM-dd'), format(clampedHi, 'yyyy-MM-dd'))
   }
 
-  const anchor = startOfDay(new Date())
+  const lastNWeeks = (n: number) =>
+    applyPreset(subDays(anchor, n * 7 - 1), anchor)
 
   const presets: { label: string; run: () => void }[] = [
-    {
-      label: 'Last 2 weeks',
-      run: () => applyPreset(subDays(anchor, 13), anchor),
-    },
-    {
-      label: 'Last 4 weeks',
-      run: () => applyPreset(subDays(anchor, 27), anchor),
-    },
-    {
-      label: 'Last 8 weeks',
-      run: () => applyPreset(subDays(anchor, 55), anchor),
-    },
-    {
-      label: 'Last 12 weeks',
-      run: () => applyPreset(subDays(anchor, 83), anchor),
-    },
+    { label: 'Last 2 weeks', run: () => lastNWeeks(2) },
+    { label: 'Last 4 weeks', run: () => lastNWeeks(4) },
+    { label: 'Last 8 weeks', run: () => lastNWeeks(8) },
+    { label: 'Last 12 weeks', run: () => lastNWeeks(12) },
+    { label: 'Last 16 weeks', run: () => lastNWeeks(16) },
+    { label: 'Last 20 weeks', run: () => lastNWeeks(20) },
+    { label: 'Last 24 weeks', run: () => lastNWeeks(24) },
     {
       label: 'Month to date',
       run: () => applyPreset(startOfMonth(anchor), anchor),
@@ -132,10 +137,8 @@ export function DateRangePicker({
   }
 
   const handleToday = () => {
-    const end = startOfDay(new Date())
-    const start = subDays(end, 29)
-    onChange(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'))
-    setViewMonth(end)
+    applyPreset(subDays(anchor, 29), anchor)
+    setViewMonth(anchor)
     setOpen(false)
   }
 
@@ -212,7 +215,7 @@ export function DateRangePicker({
               <p className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-wl-ink-muted">
                 Quick ranges
               </p>
-              <ul className="max-h-52 space-y-0.5 overflow-y-auto px-2 pb-3 sm:max-h-none">
+              <ul className="max-h-64 space-y-0.5 overflow-y-auto px-2 pb-3 sm:max-h-80">
                 {presets.map((p) => (
                   <li key={p.label}>
                     <button
@@ -339,7 +342,7 @@ export function DateRangePicker({
                   onClick={handleToday}
                   className="text-xs font-semibold text-wl-teal hover:text-wl-teal-muted hover:underline"
                 >
-                  Last 30 days → today
+                  Last 30 days
                 </button>
               </div>
             </div>
