@@ -45,13 +45,19 @@ import { useTimesheetsData } from '../hooks/useTimesheetsData'
 const TIMESHEET_TABLE_SCROLL_CLASS =
   'h-[calc(70dvh-11rem)] min-h-[24rem] overflow-auto'
 
-/** Bar color: lighter cyan for low hours → deeper teal for high (within current data range). */
+/** Bar color: light green (low hours) → deep green (high hours), within current data range. */
 function hoursToBarColor(hours: number, minH: number, maxH: number) {
-  if (maxH <= minH) return 'rgb(14, 116, 144)'
+  if (maxH <= minH) return 'rgb(5, 122, 85)'
   const t = Math.min(1, Math.max(0, (hours - minH) / (maxH - minH)))
-  const r = Math.round(207 + (14 - 207) * t)
-  const g = Math.round(250 + (116 - 250) * t)
-  const b = Math.round(254 + (144 - 254) * t)
+  const r0 = 220
+  const g0 = 252
+  const b0 = 231
+  const r1 = 5
+  const g1 = 122
+  const b1 = 85
+  const r = Math.round(r0 + (r1 - r0) * t)
+  const g = Math.round(g0 + (g1 - g0) * t)
+  const b = Math.round(b0 + (b1 - b0) * t)
   return `rgb(${r},${g},${b})`
 }
 
@@ -428,7 +434,32 @@ export default function TimesheetsView({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {(
+            [
+              ['overview', 'Summary'],
+              ['by_client', 'By client'],
+              ['by_type', 'Task types × client'],
+              ['by_staff', 'By staff'],
+              ['export', 'Daily export'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTsSub(id)}
+              className={cn(
+                'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
+                tsSub === id
+                  ? 'bg-wl-teal-soft text-wl-teal-muted'
+                  : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex w-full min-w-0 flex-col flex-wrap gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           <DateRangePicker
             from={timesheetPeriodFrom}
@@ -482,32 +513,6 @@ export default function TimesheetsView({
             buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ['overview', 'Summary'],
-            ['by_client', 'By client'],
-            ['by_type', 'Task types × client'],
-            ['by_staff', 'By staff'],
-            ['export', 'Daily export'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setTsSub(id)}
-            className={cn(
-              'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
-              tsSub === id
-                ? 'bg-wl-teal-soft text-wl-teal-muted'
-                : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
-            )}
-          >
-            {label}
-          </button>
-        ))}
       </div>
 
       {tsSub === 'overview' && (
@@ -1020,7 +1025,7 @@ export default function TimesheetsView({
                       </div>
                       {byTypePopoverOpen === 'total' && (
                         <div
-                          className="absolute left-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                          className="absolute right-0 left-auto top-full z-30 mt-1.5 w-44 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
                           role="dialog"
                           aria-label="Minimum total hours"
                         >
