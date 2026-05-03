@@ -101,10 +101,6 @@ export function DateRangePicker({
       label: 'Month to date',
       run: () => applyPreset(startOfMonth(anchor), anchor),
     },
-    {
-      label: 'Last 90 days',
-      run: () => applyPreset(subDays(anchor, 89), anchor),
-    },
   ]
 
   const monthStart = startOfMonth(viewMonth)

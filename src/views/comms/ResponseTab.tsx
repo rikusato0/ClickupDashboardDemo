@@ -39,19 +39,11 @@ export function ResponseTab({
   commsPeriodTo,
   commsFilterClients,
   commsFilterStaff,
-  respAlertDirection,
-  setRespAlertDirection,
-  respAlertThreshold,
-  setRespAlertThreshold,
 }: {
   commsPeriodFrom: string
   commsPeriodTo: string
   commsFilterClients: string[] | null
   commsFilterStaff: string[] | null
-  respAlertDirection: 'above' | 'below'
-  setRespAlertDirection: (next: 'above' | 'below') => void
-  respAlertThreshold: number
-  setRespAlertThreshold: (next: number) => void
 }) {
   const {
     teamMedian,

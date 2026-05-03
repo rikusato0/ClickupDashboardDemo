@@ -140,15 +140,7 @@ export default function CommsView({ state }: { state: CommsState }) {
           onOpenDrill={setPatternDrillId}
         />
       )}
-      {commsSub === 'response' && (
-        <ResponseTab
-          {...filterProps}
-          respAlertDirection={respAlertDirection}
-          setRespAlertDirection={setRespAlertDirection}
-          respAlertThreshold={respAlertThreshold}
-          setRespAlertThreshold={setRespAlertThreshold}
-        />
-      )}
+      {commsSub === 'response' && <ResponseTab {...filterProps} />}
       {commsSub === 'email' && <EmailTab {...filterProps} />}
 
       {commsSub === 'response' && (
