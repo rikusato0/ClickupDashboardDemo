@@ -96,6 +96,7 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
             onChange={setProfilePeriod}
             baselineFrom={profilePeriodBaselineFrom}
             baselineTo={profilePeriodBaselineTo}
+            compact
             className="w-full min-w-0 sm:w-auto"
           />
           <ClientSelect

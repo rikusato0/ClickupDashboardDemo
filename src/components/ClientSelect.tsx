@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Check, ChevronDown, Search } from 'lucide-react'
+import { Building2, Check, Search } from 'lucide-react'
 import type { Client } from '../data/mockDashboard'
 import { cn } from '../utils/cn'
 
@@ -77,31 +77,18 @@ export function ClientSelect({
           if (!open) setQuery('')
         }}
         className={cn(
-          'flex w-full min-w-0 items-center gap-2 rounded-xl border border-wl-surface bg-wl-card py-2.5 pl-3 pr-2 text-left shadow-sm transition',
-          'hover:border-wl-teal/35 focus:outline-none focus:ring-2 focus:ring-wl-teal/25',
+          'flex w-full min-w-0 items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-0 text-left text-sm text-wl-ink shadow-sm transition',
+          'h-10 min-h-10 hover:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/25',
           open && 'border-wl-teal/50 ring-2 ring-wl-teal/20',
         )}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wl-teal-soft text-wl-teal">
-          <Building2 className="h-4 w-4" aria-hidden />
+        <Building2 className="h-3.5 w-3.5 shrink-0 text-wl-ink-muted" aria-hidden />
+        <span className="shrink-0 font-semibold uppercase tracking-wide text-wl-ink-muted">
+          Client:
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-wl-ink">
-            {selected?.name ?? 'Select client'}
-          </span>
-          {selected && (
-            <span className="mt-0.5 block truncate text-[11px] text-wl-ink-muted">
-              {selected.domain} · {selected.segment}
-            </span>
-          )}
+        <span className="min-w-0 max-w-[min(100%,12rem)] flex-1 truncate font-medium text-wl-ink sm:max-w-[14rem]">
+          {selected?.name ?? 'Select…'}
         </span>
-        <ChevronDown
-          className={cn(
-            'h-4 w-4 shrink-0 text-wl-ink-muted transition',
-            open && 'rotate-180',
-          )}
-          aria-hidden
-        />
       </button>
 
       {open && (
