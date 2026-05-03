@@ -1,5 +1,12 @@
 import { useMemo } from 'react'
 import {
+  endOfMonth,
+  format,
+  isBefore,
+  parseISO,
+  startOfMonth,
+} from 'date-fns'
+import {
   COMMS_CATEGORIES,
   clients,
   monthlyPatternsByClient,
@@ -9,26 +16,58 @@ import {
   sentimentBiweekly,
 } from '../data/mockDashboard'
 
-export function useProfileData(profileClientId: string) {
+function monthOverlapsRange(monthYm: string, fromStr: string, toStr: string) {
+  const fromD = parseISO(fromStr)
+  const toD = parseISO(toStr)
+  const mStart = startOfMonth(parseISO(`${monthYm}-01`))
+  const mEnd = endOfMonth(mStart)
+  return !isBefore(mEnd, fromD) && !isBefore(toD, mStart)
+}
+
+export function useProfileData(
+  profileClientId: string,
+  periodFrom: string,
+  periodTo: string,
+) {
   return useMemo(() => {
     const client = clients.find((c) => c.id === profileClientId)
+
     const clientSentiment = sentimentBiweekly
-      .filter((r) => r.clientId === profileClientId)
+      .filter(
+        (r) =>
+          r.clientId === profileClientId &&
+          r.periodEnd >= periodFrom &&
+          r.periodEnd <= periodTo,
+      )
       .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
 
-    const recentMonth = [
+    const relevantMonths = [
       ...new Set(monthlyPatternsByClient.map((m) => m.month)),
-    ].sort().slice(-1)[0]
-    const recentPatternsForClient = COMMS_CATEGORIES.map((cat) => ({
-      category: cat,
-      volume:
-        monthlyPatternsByClient.find(
-          (m) =>
-            m.clientId === profileClientId &&
-            m.month === recentMonth &&
-            m.category === cat,
-        )?.volume ?? 0,
+    ]
+      .filter((m) => monthOverlapsRange(m, periodFrom, periodTo))
+      .sort()
+
+    const volumeByCat = new Map<string, number>()
+    for (const cat of COMMS_CATEGORIES) volumeByCat.set(cat, 0)
+    for (const row of monthlyPatternsByClient) {
+      if (row.clientId !== profileClientId) continue
+      if (!relevantMonths.includes(row.month)) continue
+      volumeByCat.set(
+        row.category,
+        (volumeByCat.get(row.category) ?? 0) + row.volume,
+      )
+    }
+    const recentPatternsForClient = COMMS_CATEGORIES.map((category) => ({
+      category,
+      volume: volumeByCat.get(category) ?? 0,
     })).sort((a, b) => b.volume - a.volume)
+
+    const periodLabelSummary =
+      relevantMonths.length === 0
+        ? null
+        : relevantMonths.length === 1
+          ? format(parseISO(`${relevantMonths[0]}-01`), 'MMMM yyyy')
+          : `${format(parseISO(`${relevantMonths[0]}-01`), 'MMM yyyy')} – ${format(parseISO(`${relevantMonths[relevantMonths.length - 1]}-01`), 'MMM yyyy')}`
 
     const upcomingForClient = predictedClientNeeds
       .filter((n) => n.clientId === profileClientId)
@@ -57,7 +96,8 @@ export function useProfileData(profileClientId: string) {
     return {
       client,
       clientSentiment,
-      recentMonth,
+      recentMonth: relevantMonths.length ? relevantMonths.at(-1)! : undefined,
+      periodLabelSummary,
       recentPatternsForClient,
       upcomingForClient,
       matchedOnboarding,
@@ -65,5 +105,5 @@ export function useProfileData(profileClientId: string) {
       worstPairs,
       totalRecent,
     }
-  }, [profileClientId])
+  }, [profileClientId, periodFrom, periodTo])
 }

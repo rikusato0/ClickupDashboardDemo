@@ -9,9 +9,9 @@ export type NavId =
   | 'onboarding'
 
 export const NAV: { id: NavId; label: string; icon: LucideIcon }[] = [
+  { id: 'profiles', label: 'Client profiles', icon: BookUser },
   { id: 'timesheets', label: 'Timesheets', icon: Clock },
   { id: 'comms', label: 'Communications analysis', icon: Inbox },
   { id: 'sentiment', label: 'Client sentiment', icon: HeartPulse },
-  { id: 'profiles', label: 'Client profiles', icon: BookUser },
   { id: 'onboarding', label: 'Client onboarding', icon: Rocket },
 ]

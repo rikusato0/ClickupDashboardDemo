@@ -1,58 +1,78 @@
-import { Angry, Frown, Meh, Smile } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
 /**
- * Sentiment quantization. The transcript: client wants "happy / meh / sad /
- * frustrated" faces instead of raw numeric scores so reports are scannable
- * at a glance.
+ * Five-band sentiment scale (−1…+1). Higher = warmer tone; lower = more tension.
+ * Emojis match the product legend (delighted → angry).
  */
-export type SentLevel = 'happy' | 'meh' | 'sad' | 'frustrated'
+export type SentLevel =
+  | 'delighted'
+  | 'satisfied'
+  | 'neutral'
+  | 'frustrated'
+  | 'angry'
+
+/** Y positions for emoji ticks (band centers on −1…+1). */
+export const SENTIMENT_Y_TICK_VALUES = [-0.8, -0.4, 0, 0.4, 0.8] as const
+
+/** Band boundaries for reference lines on line charts. */
+export const SENTIMENT_BAND_EDGES = [-0.6, -0.2, 0.2, 0.6] as const
 
 export function sentimentLevel(score: number): SentLevel {
-  if (score >= 0.4) return 'happy'
-  if (score >= 0) return 'meh'
-  if (score >= -0.4) return 'sad'
-  return 'frustrated'
+  if (score >= 0.6) return 'delighted'
+  if (score >= 0.2) return 'satisfied'
+  if (score >= -0.2) return 'neutral'
+  if (score >= -0.6) return 'frustrated'
+  return 'angry'
+}
+
+export function sentimentYTickLabel(value: number): string {
+  return SENT_STYLE[sentimentLevel(value)].emoji
 }
 
 export const SENT_STYLE: Record<
   SentLevel,
-  {
-    Icon: LucideIcon
-    label: string
-    text: string
-    bg: string
-    border: string
-    fill: string
-  }
+             {
+               label: string
+               emoji: string
+               text: string
+               bg: string
+               border: string
+               fill: string
+             }
 > = {
-  happy: {
-    Icon: Smile,
-    label: 'Happy',
+  delighted: {
+    label: 'Delighted',
+    emoji: '😄',
     text: 'text-emerald-600',
     bg: 'bg-emerald-50',
     border: 'border-emerald-200',
     fill: '#10b981',
   },
-  meh: {
-    Icon: Meh,
-    label: 'Meh',
-    text: 'text-amber-600',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
-    fill: '#f59e0b',
+  satisfied: {
+    label: 'Satisfied',
+    emoji: '🙂',
+    text: 'text-teal-700',
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+    fill: '#0d9488',
   },
-  sad: {
-    Icon: Frown,
-    label: 'Sad',
+  neutral: {
+    label: 'Neutral',
+    emoji: '😐',
+    text: 'text-slate-600',
+    bg: 'bg-slate-50',
+    border: 'border-slate-200',
+    fill: '#64748b',
+  },
+  frustrated: {
+    label: 'Frustrated',
+    emoji: '😟',
     text: 'text-orange-600',
     bg: 'bg-orange-50',
     border: 'border-orange-200',
-    fill: '#fb923c',
+    fill: '#ea580c',
   },
-  frustrated: {
-    Icon: Angry,
-    label: 'Frustrated',
+  angry: {
+    label: 'Angry',
+    emoji: '😡',
     text: 'text-rose-600',
     bg: 'bg-rose-50',
     border: 'border-rose-200',

@@ -24,12 +24,19 @@ import {
   staff,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
+import { DateRangePicker } from '../components/DateRangePicker'
 import {
   CHART_GRID,
   CHART_TICK_SM,
   TOOLTIP_STYLE,
 } from '../constants/chart'
-import { SENT_STYLE, sentimentLevel } from '../constants/sentiment'
+import {
+  SENTIMENT_BAND_EDGES,
+  SENTIMENT_Y_TICK_VALUES,
+  SENT_STYLE,
+  sentimentLevel,
+  sentimentYTickLabel,
+} from '../constants/sentiment'
 import { cn } from '../utils/cn'
 import { fmtFixed, fmtInt } from '../utils/format'
 import { useProfileData } from '../hooks/useProfileData'
@@ -37,39 +44,63 @@ import { useProfileData } from '../hooks/useProfileData'
 export type ProfilesState = {
   profileClientId: string
   setProfileClientId: (next: string) => void
+  profilePeriodFrom: string
+  profilePeriodTo: string
+  setProfilePeriod: (from: string, to: string) => void
+  profilePeriodBaselineFrom: string
+  profilePeriodBaselineTo: string
 }
 
 export default function ProfilesView({ state }: { state: ProfilesState }) {
-  const { profileClientId, setProfileClientId } = state
+  const {
+    profileClientId,
+    setProfileClientId,
+    profilePeriodFrom,
+    profilePeriodTo,
+    setProfilePeriod,
+    profilePeriodBaselineFrom,
+    profilePeriodBaselineTo,
+  } = state
+
   const {
     client,
     clientSentiment,
-    recentMonth,
+    periodLabelSummary,
     recentPatternsForClient,
     upcomingForClient,
     matchedOnboarding,
     bestPairs,
     worstPairs,
     totalRecent,
-  } = useProfileData(profileClientId)
+  } = useProfileData(profileClientId, profilePeriodFrom, profilePeriodTo)
 
   const latest = clientSentiment[clientSentiment.length - 1]
   const oldest = clientSentiment[0]
   const sentDelta = latest && oldest ? latest.score - oldest.score : 0
-  const lvl = latest ? sentimentLevel(latest.score) : 'meh'
+  const lvl = latest ? sentimentLevel(latest.score) : 'neutral'
   const sentStyle = SENT_STYLE[lvl]
-  const SentIcon = sentStyle.Icon
+  const biCount = clientSentiment.length
+  const shiftQualifier =
+    biCount >= 2
+      ? `Period shift · ${biCount} bi-weekly snapshots`
+      : 'Period shift'
 
   return (
     <div className="space-y-6">
-      <Card
-        title="Client profile"
-        subtitle="Patterns, predicted needs, sentiment, and onboarding — all in one place."
-        action={
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:ml-auto sm:w-auto sm:max-w-2xl sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <DateRangePicker
+            from={profilePeriodFrom}
+            to={profilePeriodTo}
+            onChange={setProfilePeriod}
+            baselineFrom={profilePeriodBaselineFrom}
+            baselineTo={profilePeriodBaselineTo}
+            className="w-full min-w-0 sm:w-auto"
+          />
           <select
             value={profileClientId}
             onChange={(e) => setProfileClientId(e.target.value)}
-            className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
+            className="w-full shrink-0 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30 sm:w-[min(100%,14rem)]"
             aria-label="Client"
           >
             {clients.map((c) => (
@@ -78,7 +109,12 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
               </option>
             ))}
           </select>
-        }
+        </div>
+      </div>
+
+      <Card
+        title="Client profile"
+        subtitle="Patterns, predicted needs, sentiment, and onboarding — all in one place."
       >
         <div className="grid gap-4 lg:grid-cols-4">
           <div className="rounded-xl border border-wl-surface bg-wl-page p-4">
@@ -103,7 +139,9 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
               Sentiment (latest)
             </div>
             <div className="mt-1 flex items-center gap-2">
-              <SentIcon className={cn('h-5 w-5', sentStyle.text)} />
+              <span className="text-xl leading-none" aria-hidden>
+                {sentStyle.emoji}
+              </span>
               <span
                 className={cn('text-base font-bold', sentStyle.text)}
               >
@@ -122,13 +160,13 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
             >
               {sentDelta > 0.05 && <TrendingUp className="h-3 w-3" />}
               {sentDelta < -0.05 && <TrendingDown className="h-3 w-3" />}
-              24-week shift {sentDelta > 0 ? '+' : ''}
+              {shiftQualifier}: {sentDelta > 0 ? '+' : ''}
               {fmtFixed(sentDelta, 2)}
             </div>
           </div>
           <div className="rounded-xl border border-wl-surface bg-wl-page p-4">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-wl-ink-muted">
-              Top pattern (last month)
+              Top pattern (in period)
             </div>
             <div className="mt-1 flex items-center gap-2">
               <span
@@ -192,12 +230,9 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
         <Card
           title="Recent communications mix"
           subtitle={
-            recentMonth
-              ? `Last full month — ${format(
-                  parseISO(`${recentMonth}-01`),
-                  'MMMM yyyy',
-                )}.`
-              : undefined
+            periodLabelSummary
+              ? `Calendar months overlapping your selected period — ${periodLabelSummary}.`
+              : 'No months overlap the selected period.'
           }
         >
           <ul className="space-y-2">
@@ -247,71 +282,75 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
           </ul>
         </Card>
 
-        <Card title="Sentiment trend" subtitle="24 weeks · bi-weekly.">
+        <Card
+          title="Sentiment trend"
+          subtitle={`${format(parseISO(profilePeriodFrom), 'MMM d')} – ${format(parseISO(profilePeriodTo), 'MMM d, yyyy')} · bi-weekly`}
+        >
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={clientSentiment}
-                margin={{ left: 4, right: 8, top: 8, bottom: 8 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={CHART_GRID}
-                />
-                <XAxis
-                  dataKey="periodEnd"
-                  tick={CHART_TICK_SM}
-                  tickFormatter={(d) =>
-                    format(parseISO(String(d)), 'MMM d')
-                  }
-                />
-                <YAxis
-                  domain={[-1, 1]}
-                  tick={CHART_TICK_SM}
-                  tickFormatter={(v) => {
-                    const n = Number(v)
-                    if (n >= 0.4) return '😀'
-                    if (n >= 0) return '😐'
-                    if (n >= -0.4) return '😞'
-                    return '😠'
-                  }}
-                  width={32}
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  labelFormatter={(d) =>
-                    format(parseISO(String(d)), 'MMM d, yyyy')
-                  }
-                  formatter={(v) => {
-                    const num = Number(v)
-                    const l = sentimentLevel(num)
-                    return [
-                      `${SENT_STYLE[l].label} (${fmtFixed(num, 2)})`,
-                      'Sentiment',
-                    ]
-                  }}
-                />
-                <ReferenceLine
-                  y={0.4}
-                  stroke="#10b981"
-                  strokeDasharray="4 4"
-                />
-                <ReferenceLine y={0} stroke="#94a3b8" />
-                <ReferenceLine
-                  y={-0.4}
-                  stroke="#e11d48"
-                  strokeDasharray="4 4"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#0e7490"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#0e7490' }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {clientSentiment.length === 0 ? (
+              <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-wl-surface bg-wl-page text-sm text-wl-ink-muted">
+                No sentiment snapshots fall in this period. Widen the
+                date range.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={clientSentiment}
+                  margin={{ left: 4, right: 8, top: 8, bottom: 8 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={CHART_GRID}
+                  />
+                  <XAxis
+                    dataKey="periodEnd"
+                    tick={CHART_TICK_SM}
+                    tickFormatter={(d) =>
+                      format(parseISO(String(d)), 'MMM d')
+                    }
+                  />
+                  <YAxis
+                    domain={[-1, 1]}
+                    ticks={[...SENTIMENT_Y_TICK_VALUES]}
+                    tick={CHART_TICK_SM}
+                    tickFormatter={(v) => sentimentYTickLabel(Number(v))}
+                    width={36}
+                  />
+                  <Tooltip
+                    contentStyle={TOOLTIP_STYLE}
+                    labelFormatter={(d) =>
+                      format(parseISO(String(d)), 'MMM d, yyyy')
+                    }
+                    formatter={(v) => {
+                      const num = Number(v)
+                      const l = sentimentLevel(num)
+                      const st = SENT_STYLE[l]
+                      return [
+                        `${st.emoji} ${st.label} (${fmtFixed(num, 2)})`,
+                        'Sentiment',
+                      ]
+                    }}
+                  />
+                  {SENTIMENT_BAND_EDGES.map((y) => (
+                    <ReferenceLine
+                      key={y}
+                      y={y}
+                      stroke="#94a3b8"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.65}
+                    />
+                  ))}
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#0e7490"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#0e7490' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
           <p className="mt-2 text-[11px] text-wl-ink-muted">
             Click any cell on the heatmap (Client sentiment tab)
@@ -407,7 +446,6 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
               const st = staff.find((s) => s.id === p.staffId)
               const l = sentimentLevel(p.score)
               const ps = SENT_STYLE[l]
-              const PIcon = ps.Icon
               return (
                 <li
                   key={`${p.contactId}-${p.staffId}`}
@@ -417,7 +455,9 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
                     ps.border,
                   )}
                 >
-                  <PIcon className={cn('h-5 w-5', ps.text)} />
+                  <span className="text-xl leading-none" aria-hidden>
+                    {ps.emoji}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-wl-ink">
                       {contact?.name} ↔ {st?.name}
@@ -458,7 +498,6 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
               const st = staff.find((s) => s.id === p.staffId)
               const l = sentimentLevel(p.score)
               const ps = SENT_STYLE[l]
-              const PIcon = ps.Icon
               return (
                 <li
                   key={`${p.contactId}-${p.staffId}`}
@@ -468,7 +507,9 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
                     ps.border,
                   )}
                 >
-                  <PIcon className={cn('h-5 w-5', ps.text)} />
+                  <span className="text-xl leading-none" aria-hidden>
+                    {ps.emoji}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-wl-ink">
                       {contact?.name} ↔ {st?.name}
@@ -497,6 +538,16 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
           </ul>
         </Card>
       </div>
+
+      <p className="text-xs leading-relaxed text-wl-ink-muted">
+        <span className="font-semibold text-wl-ink">
+          Relationship scores:
+        </span>{' '}
+        Each number is a sentiment index for that contact–staff pair
+        (roughly −1 to +1). It summarizes how warm or strained the
+        tone tends to be in their messages — higher is more positive;
+        lower flags friction worth a closer look.
+      </p>
     </div>
   )
 }

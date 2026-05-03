@@ -22,7 +22,14 @@ import {
   CHART_TICK_SM,
   TOOLTIP_STYLE,
 } from '../constants/chart'
-import { SENT_STYLE, sentimentLevel } from '../constants/sentiment'
+import {
+  SENTIMENT_BAND_EDGES,
+  SENTIMENT_Y_TICK_VALUES,
+  SENT_STYLE,
+  sentimentLevel,
+  sentimentYTickLabel,
+  type SentLevel,
+} from '../constants/sentiment'
 import { cn } from '../utils/cn'
 import { fmtFixed, fmtInt } from '../utils/format'
 import { useSentimentData } from '../hooks/useSentimentData'
@@ -81,9 +88,8 @@ export default function SentimentView({ state }: { state: SentimentState }) {
             latest && oldest ? latest.score - oldest.score : 0
           const latestLevel = latest
             ? sentimentLevel(latest.score)
-            : 'meh'
+            : 'neutral'
           const latestStyle = SENT_STYLE[latestLevel]
-          const LatestIcon = latestStyle.Icon
           return (
             <>
               <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -99,7 +105,9 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                       latestStyle.text,
                     )}
                   >
-                    <LatestIcon className="h-4 w-4" />
+                    <span className="text-base leading-none" aria-hidden>
+                      {latestStyle.emoji}
+                    </span>
                     {latestStyle.label}
                   </span>
                 </span>
@@ -144,13 +152,8 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                     <YAxis
                       tick={CHART_TICK}
                       domain={[-1, 1]}
-                      tickFormatter={(v) => {
-                        const n = Number(v)
-                        if (n >= 0.4) return '😀'
-                        if (n >= 0) return '😐'
-                        if (n >= -0.4) return '😞'
-                        return '😠'
-                      }}
+                      ticks={[...SENTIMENT_Y_TICK_VALUES]}
+                      tickFormatter={(v) => sentimentYTickLabel(Number(v))}
                       width={36}
                     />
                     <Tooltip
@@ -170,22 +173,20 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                             }
                           | undefined)?.payload
                         return [
-                          `${SENT_STYLE[lvl].label} (${fmtFixed(num, 2)}) · ${fmtInt(row?.msgCount ?? 0)} msgs`,
+                          `${SENT_STYLE[lvl].emoji} ${SENT_STYLE[lvl].label} (${fmtFixed(num, 2)}) · ${fmtInt(row?.msgCount ?? 0)} msgs`,
                           'Sentiment',
                         ]
                       }}
                     />
-                    <ReferenceLine
-                      y={0.4}
-                      stroke="#10b981"
-                      strokeDasharray="4 4"
-                    />
-                    <ReferenceLine y={0} stroke="#94a3b8" />
-                    <ReferenceLine
-                      y={-0.4}
-                      stroke="#e11d48"
-                      strokeDasharray="4 4"
-                    />
+                    {SENTIMENT_BAND_EDGES.map((y) => (
+                      <ReferenceLine
+                        key={y}
+                        y={y}
+                        stroke="#94a3b8"
+                        strokeDasharray="4 4"
+                        strokeOpacity={0.65}
+                      />
+                    ))}
                     <Line
                       type="monotone"
                       dataKey="score"
@@ -259,7 +260,6 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                     )!
                     const lvl = sentimentLevel(cell.score)
                     const style = SENT_STYLE[lvl]
-                    const Icon = style.Icon
                     // Find a matching biweekly period (best-effort) so
                     // the drilldown opens with the most-recent window.
                     const periodCount = w / 2
@@ -290,7 +290,9 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                           )}
                           title={`${style.label} · ${fmtInt(cell.volume)} msgs · ${cell.trend}`}
                         >
-                          <Icon className={cn('h-5 w-5', style.text)} />
+                          <span className="text-xl leading-none" aria-hidden>
+                            {style.emoji}
+                          </span>
                           <span
                             className={cn(
                               'text-[10px] font-semibold uppercase tracking-wide',
@@ -312,15 +314,24 @@ export default function SentimentView({ state }: { state: SentimentState }) {
           </table>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-wl-ink-muted">
-          {(['happy', 'meh', 'sad', 'frustrated'] as const).map((l) => {
+          {(
+            [
+              'delighted',
+              'satisfied',
+              'neutral',
+              'frustrated',
+              'angry',
+            ] as const satisfies readonly SentLevel[]
+          ).map((l) => {
             const s = SENT_STYLE[l]
-            const Ic = s.Icon
             return (
               <span
                 key={l}
                 className="inline-flex items-center gap-1.5 font-medium"
               >
-                <Ic className={cn('h-4 w-4', s.text)} />
+                <span className="text-base leading-none" aria-hidden>
+                  {s.emoji}
+                </span>
                 {s.label}
               </span>
             )

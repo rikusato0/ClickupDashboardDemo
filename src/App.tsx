@@ -7,7 +7,6 @@ import {
   type TaskType,
 } from './data/mockDashboard'
 import { BrandLogo } from './components/BrandLogo'
-import { DateRangePicker } from './components/DateRangePicker'
 import { NAV, type NavId } from './constants/nav'
 import { cn } from './utils/cn'
 import { PatternDrillModal } from './views/comms/PatternDrillModal'
@@ -40,9 +39,20 @@ export default function App() {
   const BASELINE_FROM = format(snapshot.dateRange.start, 'yyyy-MM-dd')
   const BASELINE_TO = format(snapshot.dateRange.end, 'yyyy-MM-dd')
 
-  const [nav, setNav] = useState<NavId>('timesheets')
-  const [dateFrom, setDateFrom] = useState(BASELINE_FROM)
-  const [dateTo, setDateTo] = useState(BASELINE_TO)
+  const [nav, setNav] = useState<NavId>('profiles')
+
+  const profilePeriodBounds = useMemo(() => {
+    const ends = snapshot.sentimentBiweekly.map((r) => r.periodEnd)
+    const sorted = [...new Set(ends)].sort()
+    return { from: sorted[0]!, to: sorted[sorted.length - 1]! }
+  }, [snapshot])
+
+  const [profilePeriodFrom, setProfilePeriodFrom] = useState(
+    () => profilePeriodBounds.from,
+  )
+  const [profilePeriodTo, setProfilePeriodTo] = useState(
+    () => profilePeriodBounds.to,
+  )
 
   const [filterStaff, setFilterStaff] = useState<string[] | null>(null)
   const [filterClients, setFilterClients] = useState<string[] | null>(null)
@@ -191,6 +201,14 @@ export default function App() {
   const profilesState: ProfilesState = {
     profileClientId,
     setProfileClientId,
+    profilePeriodFrom,
+    profilePeriodTo,
+    setProfilePeriod: (from, to) => {
+      setProfilePeriodFrom(from)
+      setProfilePeriodTo(to)
+    },
+    profilePeriodBaselineFrom: profilePeriodBounds.from,
+    profilePeriodBaselineTo: profilePeriodBounds.to,
   }
 
   const onboardingViewState: OnboardingState = {
@@ -224,17 +242,6 @@ export default function App() {
               Time, communications, and onboarding metrics in one place.
             </p>
           </div>
-          <DateRangePicker
-            from={dateFrom}
-            to={dateTo}
-            onChange={(f, t) => {
-              setDateFrom(f)
-              setDateTo(t)
-            }}
-            baselineFrom={BASELINE_FROM}
-            baselineTo={BASELINE_TO}
-            className="ml-auto w-full min-w-0 shrink-0 sm:w-auto"
-          />
         </div>
         <div className="border-t border-wl-surface bg-wl-card px-4 sm:px-6 lg:px-10">
           <nav className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Main">
@@ -271,8 +278,8 @@ export default function App() {
         <Suspense fallback={<ViewFallback />}>
           {nav === 'timesheets' && (
             <TimesheetsView
-              dateFrom={dateFrom}
-              dateTo={dateTo}
+              dateFrom={BASELINE_FROM}
+              dateTo={BASELINE_TO}
               state={timesheetsState}
             />
           )}

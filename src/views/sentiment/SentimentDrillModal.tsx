@@ -28,7 +28,6 @@ export function SentimentDrillModal({
   const { cell, samples, pairs } = data
   const lvl = sentimentLevel(cell.score)
   const style = SENT_STYLE[lvl]
-  const Icon = style.Icon
   const client = clients.find((c) => c.id === cell.clientId)
   const startDate = format(subDays(parseISO(cell.periodEnd), 13), 'MMM d')
   const endDate = format(parseISO(cell.periodEnd), 'MMM d, yyyy')
@@ -69,7 +68,9 @@ export function SentimentDrillModal({
                   style.text,
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <span className="text-base leading-none" aria-hidden>
+                  {style.emoji}
+                </span>
                 {style.label}
               </span>
             </h3>
@@ -184,7 +185,6 @@ export function SentimentDrillModal({
                         }
                         const pl = sentimentLevel(pair.score)
                         const ps = SENT_STYLE[pl]
-                        const PIcon = ps.Icon
                         return (
                           <td
                             key={st.id}
@@ -194,12 +194,12 @@ export function SentimentDrillModal({
                             )}
                             title={pair.note}
                           >
-                            <PIcon
-                              className={cn(
-                                'mx-auto h-4 w-4',
-                                ps.text,
-                              )}
-                            />
+                            <span
+                              className="text-base leading-none"
+                              aria-hidden
+                            >
+                              {ps.emoji}
+                            </span>
                             <div className="mt-0.5 text-[10px] text-wl-ink-muted">
                               {fmtInt(pair.msgCount)}
                             </div>
