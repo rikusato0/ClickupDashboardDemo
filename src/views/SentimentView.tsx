@@ -16,7 +16,7 @@ import {
   sentimentCells,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
-import { ClientSelect } from '../components/ClientSelect'
+import { ClientPicker } from '../components/ClientPicker'
 import { DateRangePicker } from '../components/DateRangePicker'
 import {
   CHART_GRID,
@@ -37,8 +37,8 @@ import { fmtFixed, fmtInt } from '../utils/format'
 import { useSentimentData } from '../hooks/useSentimentData'
 
 export type SentimentState = {
-  sentimentClientId: string
-  setSentimentClientId: (next: string) => void
+  sentimentClientId: string | null
+  setSentimentClientId: (next: string | null) => void
   sentimentDrill: { clientId: string; periodEnd: string } | null
   setSentimentDrill: (
     next: { clientId: string; periodEnd: string } | null,
@@ -82,10 +82,12 @@ export default function SentimentView({ state }: { state: SentimentState }) {
             compact
             className="w-full min-w-0 sm:w-auto"
           />
-          <ClientSelect
+          <ClientPicker
+            mode="single"
             clients={clients}
             value={sentimentClientId}
             onChange={setSentimentClientId}
+            allowAllCompanies
             className="w-full shrink-0 sm:w-80"
           />
         </div>
@@ -93,7 +95,11 @@ export default function SentimentView({ state }: { state: SentimentState }) {
 
       <Card
         title="Sentiment trend (per client)"
-        subtitle={`${format(parseISO(sentimentPeriodFrom), 'MMM d')} – ${format(parseISO(sentimentPeriodTo), 'MMM d, yyyy')} · bi-weekly`}
+        subtitle={`${
+          sentimentClientId == null
+            ? 'All companies · weighted blend'
+            : (clients.find((c) => c.id === sentimentClientId)?.name ?? 'Client')
+        } · ${format(parseISO(sentimentPeriodFrom), 'MMM d')} – ${format(parseISO(sentimentPeriodTo), 'MMM d, yyyy')} · bi-weekly`}
       >
         {(() => {
           const data = sentimentTrend.map((r) => ({

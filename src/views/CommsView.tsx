@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Bell, Building2, Users } from 'lucide-react'
+import { Bell, Users } from 'lucide-react'
 import { COMMS_SUB_TABS, type CommsSub } from '../components/CommsSubTabs'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { ClientPicker } from '../components/ClientPicker'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
 import { clients, staff } from '../data/mockDashboard'
 import { cn } from '../utils/cn'
@@ -117,16 +118,14 @@ export default function CommsView({ state }: { state: CommsState }) {
             onChange={setCommsFilterStaff}
             buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
-          <FilterMultiSelect
+          <ClientPicker
+            mode="multi"
+            clients={clients}
             menuId="comms-clients"
             isOpen={commsOpenFilterId === 'clients'}
             onOpenChange={(open) =>
               setCommsOpenFilterId(open ? 'clients' : null)
             }
-            icon={Building2}
-            label="Clients"
-            searchPlaceholder="Search clients…"
-            options={clients.map((c) => ({ id: c.id, label: c.name }))}
             selected={commsFilterClients}
             onChange={setCommsFilterClients}
             buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"

@@ -24,7 +24,7 @@ import {
   staff,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
-import { ClientSelect } from '../components/ClientSelect'
+import { ClientPicker } from '../components/ClientPicker'
 import { DateRangePicker } from '../components/DateRangePicker'
 import {
   CHART_GRID,
@@ -99,10 +99,13 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
             compact
             className="w-full min-w-0 sm:w-auto"
           />
-          <ClientSelect
+          <ClientPicker
+            mode="single"
             clients={clients}
             value={profileClientId}
-            onChange={setProfileClientId}
+            onChange={(id) => {
+              if (id !== null) setProfileClientId(id)
+            }}
             className="w-full shrink-0 sm:w-80"
           />
         </div>

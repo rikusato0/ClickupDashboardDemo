@@ -15,7 +15,6 @@ import {
   ArrowDownAZ,
   ArrowUpDown,
   ArrowUpZA,
-  Building2,
   Clock,
   Download,
   Users,
@@ -29,6 +28,7 @@ import {
 import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { WrappedAxisTick } from '../components/WrappedAxisTick'
+import { ClientPicker } from '../components/ClientPicker'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
 import {
   CHART_GRID,
@@ -484,16 +484,14 @@ export default function TimesheetsView({
             onChange={setFilterStaff}
             buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
-          <FilterMultiSelect
+          <ClientPicker
+            mode="multi"
+            clients={clients}
             menuId="clients"
             isOpen={openFilterId === 'clients'}
             onOpenChange={(open) =>
               setOpenFilterId(open ? 'clients' : null)
             }
-            icon={Building2}
-            label="Clients"
-            searchPlaceholder="Search clients…"
-            options={clients.map((c) => ({ id: c.id, label: c.name }))}
             selected={filterClients}
             onChange={setFilterClients}
             buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
@@ -586,7 +584,10 @@ export default function TimesheetsView({
                     />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
-                      formatter={(value) => fmtFixed(Number(value), 1)}
+                      formatter={(value) => [
+                        fmtFixed(Number(value), 1),
+                        'Hours',
+                      ]}
                       labelFormatter={(name) => String(name)}
                     />
                     <Bar dataKey="hours" radius={[8, 8, 0, 0]}>

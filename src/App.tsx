@@ -87,7 +87,7 @@ export default function App() {
   )
   const [respAlertThreshold, setRespAlertThreshold] = useState<number>(90)
 
-  const [sentimentClientId, setSentimentClientId] = useState<string>('c4')
+  const [sentimentClientId, setSentimentClientId] = useState<string | null>('c4')
   const [sentimentPeriodFrom, setSentimentPeriodFrom] = useState(
     () => profilePeriodBounds.from,
   )
