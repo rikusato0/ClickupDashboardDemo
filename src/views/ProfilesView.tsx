@@ -24,6 +24,7 @@ import {
   staff,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
+import { ClientSelect } from '../components/ClientSelect'
 import { DateRangePicker } from '../components/DateRangePicker'
 import {
   CHART_GRID,
@@ -74,6 +75,10 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
     totalRecent,
   } = useProfileData(profileClientId, profilePeriodFrom, profilePeriodTo)
 
+  const accountLead = client
+    ? staff.find((s) => s.id === client.accountManagerStaffId)
+    : undefined
+
   const latest = clientSentiment[clientSentiment.length - 1]
   const oldest = clientSentiment[0]
   const sentDelta = latest && oldest ? latest.score - oldest.score : 0
@@ -97,18 +102,12 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
             baselineTo={profilePeriodBaselineTo}
             className="w-full min-w-0 sm:w-auto"
           />
-          <select
+          <ClientSelect
+            clients={clients}
             value={profileClientId}
-            onChange={(e) => setProfileClientId(e.target.value)}
-            className="w-full shrink-0 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30 sm:w-[min(100%,14rem)]"
-            aria-label="Client"
-          >
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={setProfileClientId}
+            className="w-full shrink-0 sm:w-80"
+          />
         </div>
       </div>
 
@@ -127,6 +126,42 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
             <div className="mt-0.5 text-xs text-wl-ink-muted">
               {client?.domain}
             </div>
+            {client && (
+              <dl className="mt-3 space-y-1.5 border-t border-wl-surface pt-3 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <dt className="shrink-0 text-wl-ink-muted">Industry</dt>
+                  <dd className="text-right font-medium text-wl-ink">
+                    {client.segment}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="shrink-0 text-wl-ink-muted">Engagement</dt>
+                  <dd className="font-mono text-[10px] font-semibold tabular-nums text-wl-ink">
+                    {client.engagementCode}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="shrink-0 text-wl-ink-muted">Account lead</dt>
+                  <dd className="truncate text-right font-medium text-wl-ink">
+                    {accountLead?.name ?? '—'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="shrink-0 text-wl-ink-muted">
+                    Open tasks (ClickUp)
+                  </dt>
+                  <dd className="tabular-nums font-semibold text-wl-ink">
+                    {fmtInt(client.openTaskCount)}
+                  </dd>
+                </div>
+                <div className="flex flex-col gap-0.5 pt-0.5">
+                  <dt className="text-wl-ink-muted">ClickUp list</dt>
+                  <dd className="break-all font-mono text-[10px] text-wl-ink-muted">
+                    {client.clickUpListId}
+                  </dd>
+                </div>
+              </dl>
+            )}
           </div>
           <div
             className={cn(
@@ -538,16 +573,6 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
           </ul>
         </Card>
       </div>
-
-      <p className="text-xs leading-relaxed text-wl-ink-muted">
-        <span className="font-semibold text-wl-ink">
-          Relationship scores:
-        </span>{' '}
-        Each number is a sentiment index for that contact–staff pair
-        (roughly −1 to +1). It summarizes how warm or strained the
-        tone tends to be in their messages — higher is more positive;
-        lower flags friction worth a closer look.
-      </p>
     </div>
   )
 }
