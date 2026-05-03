@@ -121,10 +121,6 @@ export function PatternsTab({
                 })
             })()}
           </div>
-          <p className="mt-3 text-[11px] text-wl-ink-muted">
-            When "Ad hoc requests" grows fast, that's a candidate to
-            promote to a recurring engagement.
-          </p>
         </Card>
 
         <Card
