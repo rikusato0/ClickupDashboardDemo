@@ -480,14 +480,14 @@ function ClientPickerMulti({
               className="text-[11px] font-semibold text-wl-teal hover:text-wl-teal-muted hover:underline"
               onClick={() => onChange(null)}
             >
-              Select all companies
+              Select all
             </button>
             <button
               type="button"
               className="text-[11px] font-semibold text-wl-ink-muted hover:text-wl-ink hover:underline"
               onClick={() => onChange([])}
             >
-              Clear selection
+              Clear
             </button>
           </div>
           <div className="max-h-64 space-y-0.5 overflow-y-auto py-1">
