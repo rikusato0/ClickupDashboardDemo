@@ -1,4 +1,5 @@
-import { Building2, Users } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, Building2, Users } from 'lucide-react'
 import { COMMS_SUB_TABS, type CommsSub } from '../components/CommsSubTabs'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
@@ -7,6 +8,7 @@ import { cn } from '../utils/cn'
 import { PatternsTab } from './comms/PatternsTab'
 import { ResponseTab } from './comms/ResponseTab'
 import { EmailTab } from './comms/EmailTab'
+import { ResponseAlertSettingsDialog } from './comms/ResponseAlertSettingsDialog'
 
 export type CommsState = {
   commsSub: CommsSub
@@ -59,6 +61,8 @@ export default function CommsView({ state }: { state: CommsState }) {
     commsFilterStaff,
   }
 
+  const [respAlertDialogOpen, setRespAlertDialogOpen] = useState(false)
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
@@ -89,6 +93,16 @@ export default function CommsView({ state }: { state: CommsState }) {
             compact
             className="w-full min-w-0 sm:w-auto"
           />
+          {commsSub === 'response' && (
+            <button
+              type="button"
+              onClick={() => setRespAlertDialogOpen(true)}
+              className="inline-flex h-10 min-h-10 shrink-0 items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-4 py-0 text-sm font-semibold text-wl-ink shadow-sm transition hover:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/25"
+            >
+              <Bell className="h-4 w-4 shrink-0 text-wl-orange" aria-hidden />
+              Alert settings
+            </button>
+          )}
           <FilterMultiSelect
             menuId="comms-staff"
             isOpen={commsOpenFilterId === 'staff'}
@@ -136,6 +150,17 @@ export default function CommsView({ state }: { state: CommsState }) {
         />
       )}
       {commsSub === 'email' && <EmailTab {...filterProps} />}
+
+      {commsSub === 'response' && (
+        <ResponseAlertSettingsDialog
+          open={respAlertDialogOpen}
+          onClose={() => setRespAlertDialogOpen(false)}
+          direction={respAlertDirection}
+          onDirectionChange={setRespAlertDirection}
+          thresholdMinutes={respAlertThreshold}
+          onThresholdChange={setRespAlertThreshold}
+        />
+      )}
     </div>
   )
 }

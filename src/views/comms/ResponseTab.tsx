@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,7 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
-import { Bell, TrendingDown, TrendingUp } from 'lucide-react'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import { Card } from '../../components/Card'
 import {
   CHART_GRID,
@@ -34,7 +33,6 @@ import {
 import { cn } from '../../utils/cn'
 import { fmtFixed, fmtMinutes } from '../../utils/format'
 import { useCommsResponseData } from '../../hooks/useCommsResponseData'
-import { ResponseAlertSettingsDialog } from './ResponseAlertSettingsDialog'
 
 export function ResponseTab({
   commsPeriodFrom,
@@ -55,8 +53,6 @@ export function ResponseTab({
   respAlertThreshold: number
   setRespAlertThreshold: (next: number) => void
 }) {
-  const [alertOpen, setAlertOpen] = useState(false)
-
   const {
     teamMedian,
     respByStaff,
@@ -71,26 +67,6 @@ export function ResponseTab({
 
   return (
     <>
-      <div className="flex flex-wrap justify-end">
-        <button
-          type="button"
-          onClick={() => setAlertOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-4 py-2 text-sm font-semibold text-wl-ink shadow-sm transition hover:border-wl-teal/40"
-        >
-          <Bell className="h-4 w-4 text-wl-orange" />
-          Alert settings
-        </button>
-      </div>
-
-      <ResponseAlertSettingsDialog
-        open={alertOpen}
-        onClose={() => setAlertOpen(false)}
-        direction={respAlertDirection}
-        onDirectionChange={setRespAlertDirection}
-        thresholdMinutes={respAlertThreshold}
-        onThresholdChange={setRespAlertThreshold}
-      />
-
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Team median response">
           {(() => {
