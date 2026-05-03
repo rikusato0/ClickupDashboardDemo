@@ -8,14 +8,31 @@ import {
 export function useSentimentData(opts: {
   sentimentClientId: string
   sentimentDrill: { clientId: string; periodEnd: string } | null
+  sentimentPeriodFrom?: string
+  sentimentPeriodTo?: string
 }) {
-  const { sentimentClientId, sentimentDrill } = opts
+  const {
+    sentimentClientId,
+    sentimentDrill,
+    sentimentPeriodFrom,
+    sentimentPeriodTo,
+  } = opts
 
   const sentimentTrend = useMemo(() => {
+    const inRange =
+      sentimentPeriodFrom != null && sentimentPeriodTo != null
+        ? (r: { periodEnd: string }) =>
+            r.periodEnd >= sentimentPeriodFrom &&
+            r.periodEnd <= sentimentPeriodTo
+        : () => true
     return sentimentBiweekly
-      .filter((r) => r.clientId === sentimentClientId)
+      .filter((r) => r.clientId === sentimentClientId && inRange(r))
       .sort((a, b) => a.periodEnd.localeCompare(b.periodEnd))
-  }, [sentimentClientId])
+  }, [
+    sentimentClientId,
+    sentimentPeriodFrom,
+    sentimentPeriodTo,
+  ])
 
   const sentimentDrillData = useMemo(() => {
     if (!sentimentDrill) return null

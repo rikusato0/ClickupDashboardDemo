@@ -88,6 +88,12 @@ export default function App() {
   const [respAlertThreshold, setRespAlertThreshold] = useState<number>(90)
 
   const [sentimentClientId, setSentimentClientId] = useState<string>('c4')
+  const [sentimentPeriodFrom, setSentimentPeriodFrom] = useState(
+    () => profilePeriodBounds.from,
+  )
+  const [sentimentPeriodTo, setSentimentPeriodTo] = useState(
+    () => profilePeriodBounds.to,
+  )
   const [sentimentDrill, setSentimentDrill] = useState<{
     clientId: string
     periodEnd: string
@@ -225,6 +231,14 @@ export default function App() {
     setSentimentClientId,
     sentimentDrill,
     setSentimentDrill,
+    sentimentPeriodFrom,
+    sentimentPeriodTo,
+    setSentimentPeriod: (from, to) => {
+      setSentimentPeriodFrom(from)
+      setSentimentPeriodTo(to)
+    },
+    sentimentPeriodBaselineFrom: profilePeriodBounds.from,
+    sentimentPeriodBaselineTo: profilePeriodBounds.to,
   }
 
   const profilesState: ProfilesState = {

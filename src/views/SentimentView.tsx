@@ -16,6 +16,8 @@ import {
   sentimentCells,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
+import { ClientSelect } from '../components/ClientSelect'
+import { DateRangePicker } from '../components/DateRangePicker'
 import {
   CHART_GRID,
   CHART_TICK,
@@ -41,6 +43,11 @@ export type SentimentState = {
   setSentimentDrill: (
     next: { clientId: string; periodEnd: string } | null,
   ) => void
+  sentimentPeriodFrom: string
+  sentimentPeriodTo: string
+  setSentimentPeriod: (from: string, to: string) => void
+  sentimentPeriodBaselineFrom: string
+  sentimentPeriodBaselineTo: string
 }
 
 export default function SentimentView({ state }: { state: SentimentState }) {
@@ -48,32 +55,45 @@ export default function SentimentView({ state }: { state: SentimentState }) {
     sentimentClientId,
     setSentimentClientId,
     setSentimentDrill,
+    sentimentPeriodFrom,
+    sentimentPeriodTo,
+    setSentimentPeriod,
+    sentimentPeriodBaselineFrom,
+    sentimentPeriodBaselineTo,
   } = state
 
   const { sentimentTrend } = useSentimentData({
     sentimentClientId,
     sentimentDrill: null,
+    sentimentPeriodFrom,
+    sentimentPeriodTo,
   })
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:ml-auto sm:w-auto sm:max-w-2xl sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <DateRangePicker
+            from={sentimentPeriodFrom}
+            to={sentimentPeriodTo}
+            onChange={setSentimentPeriod}
+            baselineFrom={sentimentPeriodBaselineFrom}
+            baselineTo={sentimentPeriodBaselineTo}
+            compact
+            className="w-full min-w-0 sm:w-auto"
+          />
+          <ClientSelect
+            clients={clients}
+            value={sentimentClientId}
+            onChange={setSentimentClientId}
+            className="w-full shrink-0 sm:w-80"
+          />
+        </div>
+      </div>
+
       <Card
         title="Sentiment trend (per client)"
-        subtitle="Bi-weekly sentiment over the last 24 weeks. Goes deeper than the heatmap snapshot."
-        action={
-          <select
-            value={sentimentClientId}
-            onChange={(e) => setSentimentClientId(e.target.value)}
-            className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
-            aria-label="Client"
-          >
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        }
+        subtitle={`${format(parseISO(sentimentPeriodFrom), 'MMM d')} – ${format(parseISO(sentimentPeriodTo), 'MMM d, yyyy')} · bi-weekly`}
       >
         {(() => {
           const data = sentimentTrend.map((r) => ({
@@ -90,6 +110,20 @@ export default function SentimentView({ state }: { state: SentimentState }) {
             ? sentimentLevel(latest.score)
             : 'neutral'
           const latestStyle = SENT_STYLE[latestLevel]
+          const biCount = data.length
+          const shiftQualifier =
+            biCount >= 2
+              ? `Period shift · ${biCount} bi-weekly snapshots`
+              : 'Period shift'
+
+          if (data.length === 0) {
+            return (
+              <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-wl-surface bg-wl-page text-sm text-wl-ink-muted">
+                No sentiment snapshots fall in this period. Widen the date range.
+              </div>
+            )
+          }
+
           return (
             <>
               <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
@@ -113,7 +147,7 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                 </span>
                 <span className="inline-flex items-center gap-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-wl-ink-muted">
-                    24-week shift
+                    {shiftQualifier}
                   </span>
                   <span
                     className={cn(
