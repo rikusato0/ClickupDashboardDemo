@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -8,7 +9,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Building2, Clock, Download, Users } from 'lucide-react'
+import {
+  ArrowDownAZ,
+  ArrowUpDown,
+  ArrowUpZA,
+  Building2,
+  Clock,
+  Download,
+  Users,
+} from 'lucide-react'
 import {
   clients,
   staff,
@@ -16,6 +25,7 @@ import {
   type TaskType,
 } from '../data/mockDashboard'
 import { Card } from '../components/Card'
+import { DateRangePicker } from '../components/DateRangePicker'
 import { WrappedAxisTick } from '../components/WrappedAxisTick'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
 import {
@@ -45,6 +55,11 @@ export type TimesheetsState = {
   ) => void
   exportStaffIds: string[] | null
   setExportStaffIds: (next: string[] | null) => void
+  timesheetPeriodFrom: string
+  timesheetPeriodTo: string
+  setTimesheetPeriod: (from: string, to: string) => void
+  timesheetPeriodBaselineFrom: string
+  timesheetPeriodBaselineTo: string
 }
 
 export default function TimesheetsView({
@@ -69,7 +84,20 @@ export default function TimesheetsView({
     setTsSub,
     exportStaffIds,
     setExportStaffIds,
+    timesheetPeriodFrom,
+    timesheetPeriodTo,
+    setTimesheetPeriod,
+    timesheetPeriodBaselineFrom,
+    timesheetPeriodBaselineTo,
   } = state
+
+  const [byClientNameFilter, setByClientNameFilter] = useState('')
+  const [byClientHoursMin, setByClientHoursMin] = useState('')
+  const [byClientAllocMin, setByClientAllocMin] = useState('')
+  const [byClientSort, setByClientSort] = useState<
+    'client' | 'hours' | 'allocation'
+  >('hours')
+  const [byClientSortDir, setByClientSortDir] = useState<'asc' | 'desc'>('desc')
 
   const { filtered, byClient, byClientType, byStaff, exportData } =
     useTimesheetsData({
@@ -81,48 +109,134 @@ export default function TimesheetsView({
       exportStaffIds,
     })
 
+  const byClientTableRows = useMemo(() => {
+    const q = byClientNameFilter.trim().toLowerCase()
+    const hoursMinN = parseFloat(byClientHoursMin)
+    const allocMinN = parseFloat(byClientAllocMin)
+
+    let rows = byClient.map((r) => ({ ...r }))
+    if (q) {
+      rows = rows.filter((r) => r.name.toLowerCase().includes(q))
+    }
+    if (byClientHoursMin.trim() !== '' && !Number.isNaN(hoursMinN)) {
+      rows = rows.filter((r) => r.hours >= hoursMinN)
+    }
+
+    const subsetTotal = rows.reduce((a, x) => a + x.hours, 0)
+    const withAlloc = rows.map((r) => ({
+      ...r,
+      allocation: subsetTotal
+        ? Math.round((r.hours / subsetTotal) * 1000) / 10
+        : 0,
+    }))
+
+    let filteredAlloc = withAlloc
+    if (byClientAllocMin.trim() !== '' && !Number.isNaN(allocMinN)) {
+      filteredAlloc = withAlloc.filter((r) => r.allocation >= allocMinN)
+    }
+
+    const dir = byClientSortDir === 'asc' ? 1 : -1
+    const sorted = [...filteredAlloc].sort((a, b) => {
+      if (byClientSort === 'client') {
+        return dir * a.name.localeCompare(b.name)
+      }
+      if (byClientSort === 'hours') {
+        return dir * (a.hours - b.hours)
+      }
+      return dir * (a.allocation - b.allocation)
+    })
+
+    return sorted
+  }, [
+    byClient,
+    byClientNameFilter,
+    byClientHoursMin,
+    byClientAllocMin,
+    byClientSort,
+    byClientSortDir,
+  ])
+
+  const cycleByClientSort = (
+    col: 'client' | 'hours' | 'allocation',
+  ) => {
+    if (byClientSort !== col) {
+      setByClientSort(col)
+      setByClientSortDir(
+        col === 'client' ? 'asc' : 'desc',
+      )
+    } else {
+      setByClientSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    }
+  }
+
+  const SortAffordance = ({
+    col,
+  }: {
+    col: 'client' | 'hours' | 'allocation'
+  }) => {
+    const active = byClientSort === col
+    if (!active) {
+      return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" aria-hidden />
+    }
+    return byClientSortDir === 'asc' ? (
+      <ArrowDownAZ className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
+    ) : (
+      <ArrowUpZA className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-wl-surface bg-wl-card p-3 shadow-sm shadow-slate-900/5">
-        <FilterMultiSelect
-          menuId="staff"
-          isOpen={openFilterId === 'staff'}
-          onOpenChange={(open) =>
-            setOpenFilterId(open ? 'staff' : null)
-          }
-          icon={Users}
-          label="Staff"
-          searchPlaceholder="Search staff…"
-          options={staff.map((s) => ({ id: s.id, label: s.name }))}
-          selected={filterStaff}
-          onChange={setFilterStaff}
-        />
-        <FilterMultiSelect
-          menuId="clients"
-          isOpen={openFilterId === 'clients'}
-          onOpenChange={(open) =>
-            setOpenFilterId(open ? 'clients' : null)
-          }
-          icon={Building2}
-          label="Clients"
-          searchPlaceholder="Search clients…"
-          options={clients.map((c) => ({ id: c.id, label: c.name }))}
-          selected={filterClients}
-          onChange={setFilterClients}
-        />
-        <FilterMultiSelect
-          menuId="taskType"
-          isOpen={openFilterId === 'taskType'}
-          onOpenChange={(open) =>
-            setOpenFilterId(open ? 'taskType' : null)
-          }
-          icon={Clock}
-          label="Task type"
-          searchPlaceholder="Search task types…"
-          options={TASK_TYPES.map((t) => ({ id: t, label: t }))}
-          selected={filterTaskTypes}
-          onChange={setFilterTaskTypes}
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="flex w-full min-w-0 flex-col flex-wrap gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <DateRangePicker
+            from={timesheetPeriodFrom}
+            to={timesheetPeriodTo}
+            onChange={setTimesheetPeriod}
+            baselineFrom={timesheetPeriodBaselineFrom}
+            baselineTo={timesheetPeriodBaselineTo}
+            className="w-full min-w-0 sm:w-auto"
+          />
+          <FilterMultiSelect
+            menuId="staff"
+            isOpen={openFilterId === 'staff'}
+            onOpenChange={(open) =>
+              setOpenFilterId(open ? 'staff' : null)
+            }
+            icon={Users}
+            label="Staff"
+            searchPlaceholder="Search staff…"
+            options={staff.map((s) => ({ id: s.id, label: s.name }))}
+            selected={filterStaff}
+            onChange={setFilterStaff}
+          />
+          <FilterMultiSelect
+            menuId="clients"
+            isOpen={openFilterId === 'clients'}
+            onOpenChange={(open) =>
+              setOpenFilterId(open ? 'clients' : null)
+            }
+            icon={Building2}
+            label="Clients"
+            searchPlaceholder="Search clients…"
+            options={clients.map((c) => ({ id: c.id, label: c.name }))}
+            selected={filterClients}
+            onChange={setFilterClients}
+          />
+          <FilterMultiSelect
+            menuId="taskType"
+            isOpen={openFilterId === 'taskType'}
+            onOpenChange={(open) =>
+              setOpenFilterId(open ? 'taskType' : null)
+            }
+            icon={Clock}
+            label="Task type"
+            searchPlaceholder="Search task types…"
+            options={TASK_TYPES.map((t) => ({ id: t, label: t }))}
+            selected={filterTaskTypes}
+            onChange={setFilterTaskTypes}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -213,21 +327,84 @@ export default function TimesheetsView({
       )}
 
       {tsSub === 'by_client' && (
-        <Card title="Hours by client (ranked)">
+        <Card title="Hours by client">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                  <th className="pb-3 pr-4">Client</th>
-                  <th className="pb-3 pr-4">Hours</th>
-                  <th className="pb-3">Share</th>
+                  <th className="max-w-[14rem] pb-3 pr-4 align-bottom">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cycleByClientSort('client')}
+                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                      >
+                        Client
+                        <SortAffordance col="client" />
+                      </button>
+                      <input
+                        type="search"
+                        value={byClientNameFilter}
+                        onChange={(e) => setByClientNameFilter(e.target.value)}
+                        placeholder="Contains…"
+                        className="w-full rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
+                      />
+                    </div>
+                  </th>
+                  <th className="w-32 pb-3 pr-4 align-bottom">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cycleByClientSort('hours')}
+                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                      >
+                        Hours
+                        <SortAffordance col="hours" />
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={byClientHoursMin}
+                        onChange={(e) => setByClientHoursMin(e.target.value)}
+                        placeholder="Min hours"
+                        className="w-full rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
+                      />
+                    </div>
+                  </th>
+                  <th className="min-w-[10rem] pb-3 align-bottom">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => cycleByClientSort('allocation')}
+                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                      >
+                        Allocation
+                        <SortAffordance col="allocation" />
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={byClientAllocMin}
+                        onChange={(e) => setByClientAllocMin(e.target.value)}
+                        placeholder="Min %"
+                        className="w-full max-w-[6.5rem] rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
+                      />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {byClient.map((r) => {
-                  const total = byClient.reduce((a, x) => a + x.hours, 0)
-                  const pct = total ? Math.round((r.hours / total) * 1000) / 10 : 0
-                  return (
+                {byClientTableRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="py-8 text-center text-sm text-wl-ink-muted"
+                    >
+                      No rows match these filters.
+                    </td>
+                  </tr>
+                ) : (
+                  byClientTableRows.map((r) => (
                     <tr
                       key={r.name}
                       className="border-b border-wl-surface text-wl-ink"
@@ -243,17 +420,19 @@ export default function TimesheetsView({
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
                             <div
                               className="h-full rounded-full bg-wl-teal"
-                              style={{ width: `${pct}%` }}
+                              style={{
+                                width: `${Math.min(100, r.allocation)}%`,
+                              }}
                             />
                           </div>
-                          <span className="w-10 text-right text-xs text-wl-ink-muted">
-                            {fmtFixed(pct, 1)}%
+                          <span className="w-10 shrink-0 text-right text-xs text-wl-ink-muted">
+                            {fmtFixed(r.allocation, 1)}%
                           </span>
                         </div>
                       </td>
                     </tr>
-                  )
-                })}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

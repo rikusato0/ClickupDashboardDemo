@@ -65,6 +65,10 @@ export default function App() {
   >('overview')
   const [exportStaffIds, setExportStaffIds] = useState<string[] | null>(null)
 
+  const [timesheetPeriodFrom, setTimesheetPeriodFrom] =
+    useState(BASELINE_FROM)
+  const [timesheetPeriodTo, setTimesheetPeriodTo] = useState(BASELINE_TO)
+
   const [commsSub, setCommsSub] = useState<'patterns' | 'response' | 'email'>(
     'patterns',
   )
@@ -174,6 +178,14 @@ export default function App() {
     setTsSub,
     exportStaffIds,
     setExportStaffIds,
+    timesheetPeriodFrom,
+    timesheetPeriodTo,
+    setTimesheetPeriod: (from, to) => {
+      setTimesheetPeriodFrom(from)
+      setTimesheetPeriodTo(to)
+    },
+    timesheetPeriodBaselineFrom: BASELINE_FROM,
+    timesheetPeriodBaselineTo: BASELINE_TO,
   }
 
   const commsState: CommsState = {
@@ -278,8 +290,8 @@ export default function App() {
         <Suspense fallback={<ViewFallback />}>
           {nav === 'timesheets' && (
             <TimesheetsView
-              dateFrom={BASELINE_FROM}
-              dateTo={BASELINE_TO}
+              dateFrom={timesheetPeriodFrom}
+              dateTo={timesheetPeriodTo}
               state={timesheetsState}
             />
           )}
