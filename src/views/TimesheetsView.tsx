@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   Legend,
   ResponsiveContainer,
@@ -32,7 +33,6 @@ import { FilterMultiSelect } from '../components/FilterMultiSelect'
 import {
   CHART_GRID,
   CHART_TICK,
-  CHART_TICK_SM,
   TASK_COLORS,
   TOOLTIP_STYLE,
 } from '../constants/chart'
@@ -41,8 +41,19 @@ import { downloadCsv } from '../utils/csv'
 import { fmtExportCell, fmtFixed, fmtInt } from '../utils/format'
 import { useTimesheetsData } from '../hooks/useTimesheetsData'
 
-/** Fixed-height scroll region for timesheet tables (matches Task types × client table). */
-const TIMESHEET_TABLE_SCROLL_CLASS = 'h-80 overflow-auto'
+/** Near full-viewport scroll region for timesheet tables. */
+const TIMESHEET_TABLE_SCROLL_CLASS =
+  'h-[calc(100dvh-11rem)] min-h-[24rem] overflow-auto'
+
+/** Bar color: lighter cyan for low hours → deeper teal for high (within current data range). */
+function hoursToBarColor(hours: number, minH: number, maxH: number) {
+  if (maxH <= minH) return 'rgb(14, 116, 144)'
+  const t = Math.min(1, Math.max(0, (hours - minH) / (maxH - minH)))
+  const r = Math.round(207 + (14 - 207) * t)
+  const g = Math.round(250 + (116 - 250) * t)
+  const b = Math.round(254 + (144 - 254) * t)
+  return `rgb(${r},${g},${b})`
+}
 
 export type TimesheetsState = {
   filterStaff: string[] | null
@@ -103,8 +114,47 @@ export default function TimesheetsView({
   >(null)
   const byClientTableHeadRef = useRef<HTMLTableSectionElement>(null)
 
+  const [byTypeNameFilter, setByTypeNameFilter] = useState('')
+  const [byTypeTotalMin, setByTypeTotalMin] = useState('')
+  const [byTypeTaskMin, setByTypeTaskMin] = useState<Record<TaskType, string>>(
+    () =>
+      Object.fromEntries(TASK_TYPES.map((t) => [t, ''])) as Record<
+        TaskType,
+        string
+      >,
+  )
+  const [byTypeSort, setByTypeSort] = useState<
+    'client' | 'total' | TaskType
+  >('total')
+  const [byTypeSortDir, setByTypeSortDir] = useState<'asc' | 'desc'>('desc')
+  const [byTypePopoverOpen, setByTypePopoverOpen] = useState<
+    null | 'client' | 'total' | TaskType
+  >(null)
+  const byTypeTableHeadRef = useRef<HTMLTableSectionElement>(null)
+
+  const [byStaffNameFilter, setByStaffNameFilter] = useState('')
+  const [byStaffHoursMin, setByStaffHoursMin] = useState('')
+  const [byStaffEntriesMin, setByStaffEntriesMin] = useState('')
+  const [byStaffAvgMin, setByStaffAvgMin] = useState('')
+  const [byStaffSort, setByStaffSort] = useState<
+    'staff' | 'hours' | 'entries' | 'avg'
+  >('hours')
+  const [byStaffSortDir, setByStaffSortDir] = useState<'asc' | 'desc'>('desc')
+  const [byStaffPopoverOpen, setByStaffPopoverOpen] = useState<
+    null | 'staff' | 'hours' | 'entries' | 'avg'
+  >(null)
+  const byStaffTableHeadRef = useRef<HTMLTableSectionElement>(null)
+
   useEffect(() => {
     if (tsSub !== 'by_client') setByClientPopoverOpen(null)
+  }, [tsSub])
+
+  useEffect(() => {
+    if (tsSub !== 'by_type') setByTypePopoverOpen(null)
+  }, [tsSub])
+
+  useEffect(() => {
+    if (tsSub !== 'by_staff') setByStaffPopoverOpen(null)
   }, [tsSub])
 
   useEffect(() => {
@@ -124,6 +174,42 @@ export default function TimesheetsView({
       window.removeEventListener('keydown', onKey)
     }
   }, [byClientPopoverOpen])
+
+  useEffect(() => {
+    if (byTypePopoverOpen === null) return
+    const onDoc = (e: MouseEvent) => {
+      if (!byTypeTableHeadRef.current?.contains(e.target as Node)) {
+        setByTypePopoverOpen(null)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setByTypePopoverOpen(null)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [byTypePopoverOpen])
+
+  useEffect(() => {
+    if (byStaffPopoverOpen === null) return
+    const onDoc = (e: MouseEvent) => {
+      if (!byStaffTableHeadRef.current?.contains(e.target as Node)) {
+        setByStaffPopoverOpen(null)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setByStaffPopoverOpen(null)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [byStaffPopoverOpen])
 
   const { filtered, byClient, byClientType, byStaff, exportData } =
     useTimesheetsData({
@@ -181,10 +267,115 @@ export default function TimesheetsView({
     byClientSortDir,
   ])
 
+  const byTypeTableRows = useMemo(() => {
+    const q = byTypeNameFilter.trim().toLowerCase()
+    const totalMinN = parseFloat(byTypeTotalMin)
+    let rows = byClientType.map((r) => ({ ...r }))
+    if (q) {
+      rows = rows.filter((r) =>
+        String(r.client).toLowerCase().includes(q),
+      )
+    }
+    if (byTypeTotalMin.trim() !== '' && !Number.isNaN(totalMinN)) {
+      rows = rows.filter((r) => (r.total as number) >= totalMinN)
+    }
+    for (const t of TASK_TYPES) {
+      const raw = byTypeTaskMin[t]?.trim() ?? ''
+      if (raw === '') continue
+      const n = parseFloat(raw)
+      if (Number.isNaN(n)) continue
+      rows = rows.filter((r) => (r[t] as number) >= n)
+    }
+
+    const dir = byTypeSortDir === 'asc' ? 1 : -1
+    const sorted = [...rows].sort((a, b) => {
+      if (byTypeSort === 'client') {
+        return dir * String(a.client).localeCompare(String(b.client))
+      }
+      if (byTypeSort === 'total') {
+        return dir * ((a.total as number) - (b.total as number))
+      }
+      const t = byTypeSort
+      return dir * ((a[t] as number) - (b[t] as number))
+    })
+    return sorted
+  }, [
+    byClientType,
+    byTypeNameFilter,
+    byTypeTotalMin,
+    byTypeTaskMin,
+    byTypeSort,
+    byTypeSortDir,
+  ])
+
+  type StaffRow = (typeof byStaff)[number] & { avg: number }
+  const byStaffTableRows = useMemo(() => {
+    const q = byStaffNameFilter.trim().toLowerCase()
+    const hoursMinN = parseFloat(byStaffHoursMin)
+    const entriesMinN = parseFloat(byStaffEntriesMin)
+    const avgMinN = parseFloat(byStaffAvgMin)
+
+    let rows: StaffRow[] = byStaff.map((r) => ({
+      ...r,
+      avg: r.entries ? r.hours / r.entries : 0,
+    }))
+    if (q) {
+      rows = rows.filter((r) => r.name.toLowerCase().includes(q))
+    }
+    if (byStaffHoursMin.trim() !== '' && !Number.isNaN(hoursMinN)) {
+      rows = rows.filter((r) => r.hours >= hoursMinN)
+    }
+    if (byStaffEntriesMin.trim() !== '' && !Number.isNaN(entriesMinN)) {
+      rows = rows.filter((r) => r.entries >= entriesMinN)
+    }
+    if (byStaffAvgMin.trim() !== '' && !Number.isNaN(avgMinN)) {
+      rows = rows.filter((r) => r.entries > 0 && r.avg >= avgMinN)
+    }
+
+    const dir = byStaffSortDir === 'asc' ? 1 : -1
+    const sorted = [...rows].sort((a, b) => {
+      if (byStaffSort === 'staff') {
+        return dir * a.name.localeCompare(b.name)
+      }
+      if (byStaffSort === 'hours') {
+        return dir * (a.hours - b.hours)
+      }
+      if (byStaffSort === 'entries') {
+        return dir * (a.entries - b.entries)
+      }
+      return dir * (a.avg - b.avg)
+    })
+    return sorted
+  }, [
+    byStaff,
+    byStaffNameFilter,
+    byStaffHoursMin,
+    byStaffEntriesMin,
+    byStaffAvgMin,
+    byStaffSort,
+    byStaffSortDir,
+  ])
+
+  const hourRange = useMemo(() => {
+    if (byClient.length === 0) return { min: 0, max: 1 }
+    const hs = byClient.map((c) => c.hours)
+    return { min: Math.min(...hs), max: Math.max(...hs) }
+  }, [byClient])
+
   const toggleByClientPopover = (
     col: 'client' | 'hours' | 'allocation',
   ) => {
     setByClientPopoverOpen((v) => (v === col ? null : col))
+  }
+
+  const toggleByTypePopover = (col: 'client' | 'total' | TaskType) => {
+    setByTypePopoverOpen((v) => (v === col ? null : col))
+  }
+
+  const toggleByStaffPopover = (
+    col: 'staff' | 'hours' | 'entries' | 'avg',
+  ) => {
+    setByStaffPopoverOpen((v) => (v === col ? null : col))
   }
 
   const cycleByClientSort = (
@@ -200,16 +391,35 @@ export default function TimesheetsView({
     }
   }
 
-  const SortAffordance = ({
-    col,
+  const cycleByTypeSort = (col: 'client' | 'total' | TaskType) => {
+    if (byTypeSort !== col) {
+      setByTypeSort(col)
+      setByTypeSortDir(col === 'client' ? 'asc' : 'desc')
+    } else {
+      setByTypeSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    }
+  }
+
+  const cycleByStaffSort = (col: 'staff' | 'hours' | 'entries' | 'avg') => {
+    if (byStaffSort !== col) {
+      setByStaffSort(col)
+      setByStaffSortDir(col === 'staff' ? 'asc' : 'desc')
+    } else {
+      setByStaffSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    }
+  }
+
+  const SortIcon = ({
+    active,
+    dir,
   }: {
-    col: 'client' | 'hours' | 'allocation'
+    active: boolean
+    dir: 'asc' | 'desc'
   }) => {
-    const active = byClientSort === col
     if (!active) {
       return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" aria-hidden />
     }
-    return byClientSortDir === 'asc' ? (
+    return dir === 'asc' ? (
       <ArrowDownAZ className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
     ) : (
       <ArrowUpZA className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
@@ -330,53 +540,64 @@ export default function TimesheetsView({
           </Card>
           <Card title="Hours by client" className="lg:col-span-3">
             <div
-              className="h-80 w-full overflow-y-auto rounded-lg border border-wl-surface/70 bg-gradient-to-b from-wl-card to-wl-page/50"
+              className="h-[min(58dvh,40rem)] w-full min-h-[20rem] overflow-x-auto rounded-lg border border-wl-surface/70 bg-gradient-to-b from-wl-card to-wl-page/50"
             >
               <div
-                className="w-full min-h-full px-2 py-2 sm:px-3"
+                className="h-full min-h-[18rem] px-2 py-2 sm:px-3"
                 style={{
-                  height: Math.max(280, 28 + byClient.length * 40),
+                  minWidth: Math.max(320, byClient.length * 52),
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    layout="vertical"
                     data={byClient}
-                    margin={{ left: 2, right: 40, top: 4, bottom: 4 }}
-                    barCategoryGap="28%"
-                    maxBarSize={26}
+                    margin={{ left: 4, right: 12, top: 28, bottom: 64 }}
+                    barCategoryGap="18%"
+                    maxBarSize={52}
                   >
+                    <CartesianGrid
+                      strokeDasharray="3 6"
+                      stroke={CHART_GRID}
+                      strokeOpacity={0.55}
+                      vertical={false}
+                    />
                     <XAxis
-                      type="number"
+                      dataKey="name"
+                      tick={
+                        <WrappedAxisTick fontSize={11} maxCharsPerLine={12} />
+                      }
+                      interval={0}
+                      height={76}
+                      tickMargin={10}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
                       tick={CHART_TICK}
                       tickFormatter={(v) => fmtFixed(Number(v), 0)}
                       axisLine={false}
                       tickLine={false}
-                      tickMargin={4}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={150}
-                      tick={CHART_TICK_SM}
-                      axisLine={false}
-                      tickLine={false}
+                      width={44}
                     />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
                       formatter={(value) => fmtFixed(Number(value), 1)}
                       labelFormatter={(name) => String(name)}
-                      cursor={{ fill: 'rgba(14, 116, 144, 0.06)' }}
                     />
-                    <Bar
-                      dataKey="hours"
-                      fill="#0e7490"
-                      fillOpacity={0.88}
-                      radius={[0, 5, 5, 0]}
-                    >
+                    <Bar dataKey="hours" radius={[8, 8, 0, 0]}>
+                      {byClient.map((row) => (
+                        <Cell
+                          key={row.name}
+                          fill={hoursToBarColor(
+                            row.hours,
+                            hourRange.min,
+                            hourRange.max,
+                          )}
+                        />
+                      ))}
                       <LabelList
                         dataKey="hours"
-                        position="right"
+                        position="top"
                         offset={8}
                         formatter={(v) =>
                           v == null || v === ''
@@ -385,7 +606,7 @@ export default function TimesheetsView({
                         }
                         style={{
                           fill: '#475569',
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: 600,
                           fontVariantNumeric: 'tabular-nums',
                         }}
@@ -434,7 +655,10 @@ export default function TimesheetsView({
                         className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by client name"
                       >
-                        <SortAffordance col="client" />
+                        <SortIcon
+                          active={byClientSort === 'client'}
+                          dir={byClientSortDir}
+                        />
                       </button>
                     </div>
                     {byClientPopoverOpen === 'client' && (
@@ -480,7 +704,10 @@ export default function TimesheetsView({
                         className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by hours"
                       >
-                        <SortAffordance col="hours" />
+                        <SortIcon
+                          active={byClientSort === 'hours'}
+                          dir={byClientSortDir}
+                        />
                       </button>
                     </div>
                     {byClientPopoverOpen === 'hours' && (
@@ -527,7 +754,10 @@ export default function TimesheetsView({
                         className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by allocation"
                       >
-                        <SortAffordance col="allocation" />
+                        <SortIcon
+                          active={byClientSort === 'allocation'}
+                          dir={byClientSortDir}
+                        />
                       </button>
                     </div>
                     {byClientPopoverOpen === 'allocation' && (
@@ -649,36 +879,200 @@ export default function TimesheetsView({
           <Card title="Table — full detail">
             <div className={`${TIMESHEET_TABLE_SCROLL_CLASS} text-xs`}>
               <table className="w-full text-left">
-                <thead className="sticky top-0 bg-wl-page">
-                  <tr className="text-wl-ink-muted">
-                    <th className="py-2">Client</th>
+                <thead
+                  ref={byTypeTableHeadRef}
+                  className="sticky top-0 z-20 border-b border-wl-surface bg-wl-page text-[10px] font-semibold uppercase tracking-wide text-wl-ink-muted"
+                >
+                  <tr>
+                    <th className="relative py-2 pr-2 align-middle normal-case">
+                      <div className="inline-flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleByTypePopover('client')}
+                          className={cn(
+                            'rounded px-0.5 py-0.5 text-left font-semibold uppercase tracking-wide transition',
+                            byTypePopoverOpen === 'client' ||
+                              byTypeNameFilter.trim() !== ''
+                              ? 'text-wl-teal'
+                              : 'text-wl-ink-muted hover:text-wl-ink',
+                          )}
+                        >
+                          Client
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => cycleByTypeSort('client')}
+                          className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                          aria-label="Sort by client"
+                        >
+                          <SortIcon
+                            active={byTypeSort === 'client'}
+                            dir={byTypeSortDir}
+                          />
+                        </button>
+                      </div>
+                      {byTypePopoverOpen === 'client' && (
+                        <div
+                          className="absolute left-0 top-full z-30 mt-1.5 min-w-[13rem] max-w-[min(100vw-2rem,16rem)] rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                          role="dialog"
+                          aria-label="Filter by client name"
+                        >
+                          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                            Name contains
+                          </label>
+                          <input
+                            type="search"
+                            value={byTypeNameFilter}
+                            onChange={(e) =>
+                              setByTypeNameFilter(e.target.value)
+                            }
+                            placeholder="Contains…"
+                            autoFocus
+                            className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                          />
+                        </div>
+                      )}
+                    </th>
                     {TASK_TYPES.map((t) => (
-                      <th key={t} className="py-2">
-                        {t}
+                      <th
+                        key={t}
+                        className="relative px-0.5 py-2 align-middle"
+                      >
+                        <div className="inline-flex max-w-[4.5rem] flex-col items-start gap-0.5 sm:max-w-none sm:flex-row sm:items-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleByTypePopover(t)}
+                            className={cn(
+                              'rounded px-0.5 py-0.5 text-left leading-tight transition',
+                              byTypePopoverOpen === t ||
+                                (byTypeTaskMin[t]?.trim() ?? '') !== ''
+                                ? 'text-wl-teal'
+                                : 'text-wl-ink-muted hover:text-wl-ink',
+                            )}
+                          >
+                            {t}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cycleByTypeSort(t)}
+                            className="shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                            aria-label={`Sort by ${t}`}
+                          >
+                            <SortIcon
+                              active={byTypeSort === t}
+                              dir={byTypeSortDir}
+                            />
+                          </button>
+                        </div>
+                        {byTypePopoverOpen === t && (
+                          <div
+                            className="absolute left-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                            role="dialog"
+                            aria-label={`Minimum ${t} hours`}
+                          >
+                            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                              Min {t} (h)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={byTypeTaskMin[t] ?? ''}
+                              onChange={(e) =>
+                                setByTypeTaskMin((m) => ({
+                                  ...m,
+                                  [t]: e.target.value,
+                                }))
+                              }
+                              placeholder="Min"
+                              autoFocus
+                              className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                            />
+                          </div>
+                        )}
                       </th>
                     ))}
-                    <th className="py-2">Σ</th>
+                    <th className="relative py-2 pl-1 align-middle">
+                      <div className="inline-flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleByTypePopover('total')}
+                          className={cn(
+                            'rounded px-0.5 py-0.5 text-left transition',
+                            byTypePopoverOpen === 'total' ||
+                              byTypeTotalMin.trim() !== ''
+                              ? 'text-wl-teal'
+                              : 'text-wl-ink-muted hover:text-wl-ink',
+                          )}
+                        >
+                          Σ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => cycleByTypeSort('total')}
+                          className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                          aria-label="Sort by total"
+                        >
+                          <SortIcon
+                            active={byTypeSort === 'total'}
+                            dir={byTypeSortDir}
+                          />
+                        </button>
+                      </div>
+                      {byTypePopoverOpen === 'total' && (
+                        <div
+                          className="absolute left-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                          role="dialog"
+                          aria-label="Minimum total hours"
+                        >
+                          <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                            Minimum Σ (h)
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={byTypeTotalMin}
+                            onChange={(e) =>
+                              setByTypeTotalMin(e.target.value)
+                            }
+                            placeholder="Min total"
+                            autoFocus
+                            className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                          />
+                        </div>
+                      )}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {byClientType.map((row) => (
-                    <tr
-                      key={String(row.client)}
-                      className="border-t border-wl-surface text-wl-ink"
-                    >
-                      <td className="py-2 font-medium text-wl-ink">
-                        {row.client}
-                      </td>
-                      {TASK_TYPES.map((t) => (
-                        <td key={t} className="py-2 tabular-nums">
-                          {fmtFixed(row[t] as number, 1)}
-                        </td>
-                      ))}
-                      <td className="py-2 tabular-nums font-semibold text-wl-ink">
-                        {fmtFixed(row.total as number, 1)}
+                  {byTypeTableRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={TASK_TYPES.length + 2}
+                        className="py-8 text-center text-sm text-wl-ink-muted"
+                      >
+                        No rows match these filters.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    byTypeTableRows.map((row) => (
+                      <tr
+                        key={String(row.client)}
+                        className="border-b border-wl-surface text-wl-ink last:border-b-0"
+                      >
+                        <td className="py-2 pr-2 font-medium text-wl-ink">
+                          {row.client}
+                        </td>
+                        {TASK_TYPES.map((t) => (
+                          <td key={t} className="py-2 tabular-nums">
+                            {fmtFixed(row[t] as number, 1)}
+                          </td>
+                        ))}
+                        <td className="py-2 tabular-nums font-semibold text-wl-ink">
+                          {fmtFixed(row.total as number, 1)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -690,43 +1084,252 @@ export default function TimesheetsView({
         <Card title="Staff summary">
           <div className={TIMESHEET_TABLE_SCROLL_CLASS}>
             <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                  <th className="pb-3 pr-4">Staff</th>
-                  <th className="pb-3 pr-4">Hours</th>
-                  <th className="pb-3 pr-4">Entries</th>
-                  <th className="pb-3">Avg / entry</th>
+              <thead
+                ref={byStaffTableHeadRef}
+                className="sticky top-0 z-20 border-b border-wl-surface bg-wl-card text-xs font-semibold uppercase tracking-wide text-wl-ink-muted"
+              >
+                <tr>
+                  <th className="relative py-3 pr-4 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleByStaffPopover('staff')}
+                        className={cn(
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
+                          byStaffPopoverOpen === 'staff' ||
+                            byStaffNameFilter.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Staff
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cycleByStaffSort('staff')}
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by staff"
+                      >
+                        <SortIcon
+                          active={byStaffSort === 'staff'}
+                          dir={byStaffSortDir}
+                        />
+                      </button>
+                    </div>
+                    {byStaffPopoverOpen === 'staff' && (
+                      <div
+                        className="absolute left-0 top-full z-30 mt-1.5 min-w-[13rem] max-w-[min(100vw-2rem,16rem)] rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Filter by staff name"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Name contains
+                        </label>
+                        <input
+                          type="search"
+                          value={byStaffNameFilter}
+                          onChange={(e) =>
+                            setByStaffNameFilter(e.target.value)
+                          }
+                          placeholder="Contains…"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
+                  </th>
+                  <th className="relative py-3 pr-4 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleByStaffPopover('hours')}
+                        className={cn(
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
+                          byStaffPopoverOpen === 'hours' ||
+                            byStaffHoursMin.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Hours
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cycleByStaffSort('hours')}
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by hours"
+                      >
+                        <SortIcon
+                          active={byStaffSort === 'hours'}
+                          dir={byStaffSortDir}
+                        />
+                      </button>
+                    </div>
+                    {byStaffPopoverOpen === 'hours' && (
+                      <div
+                        className="absolute left-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Minimum hours"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Minimum hours
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={byStaffHoursMin}
+                          onChange={(e) =>
+                            setByStaffHoursMin(e.target.value)
+                          }
+                          placeholder="Min"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
+                  </th>
+                  <th className="relative py-3 pr-4 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleByStaffPopover('entries')}
+                        className={cn(
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
+                          byStaffPopoverOpen === 'entries' ||
+                            byStaffEntriesMin.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Entries
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cycleByStaffSort('entries')}
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by entries"
+                      >
+                        <SortIcon
+                          active={byStaffSort === 'entries'}
+                          dir={byStaffSortDir}
+                        />
+                      </button>
+                    </div>
+                    {byStaffPopoverOpen === 'entries' && (
+                      <div
+                        className="absolute left-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Minimum entries"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Minimum entries
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={byStaffEntriesMin}
+                          onChange={(e) =>
+                            setByStaffEntriesMin(e.target.value)
+                          }
+                          placeholder="Min"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
+                  </th>
+                  <th className="relative py-3 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleByStaffPopover('avg')}
+                        className={cn(
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
+                          byStaffPopoverOpen === 'avg' ||
+                            byStaffAvgMin.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Avg / entry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cycleByStaffSort('avg')}
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by average hours per entry"
+                      >
+                        <SortIcon
+                          active={byStaffSort === 'avg'}
+                          dir={byStaffSortDir}
+                        />
+                      </button>
+                    </div>
+                    {byStaffPopoverOpen === 'avg' && (
+                      <div
+                        className="absolute left-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Minimum average hours"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Minimum avg (h)
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={byStaffAvgMin}
+                          onChange={(e) =>
+                            setByStaffAvgMin(e.target.value)
+                          }
+                          placeholder="Min"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {byStaff.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-wl-surface text-wl-ink"
-                  >
-                    <td className="py-2 pr-4">
-                      <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-wl-teal-soft text-xs font-bold text-wl-teal-muted">
-                        {r.initials}
-                      </span>
-                      {r.name}
-                    </td>
-                    <td className="py-2 pr-4 tabular-nums font-semibold text-wl-ink">
-                      {fmtFixed(r.hours, 1)}
-                    </td>
-                    <td className="py-2 pr-4 tabular-nums text-wl-ink-muted">
-                      {fmtInt(r.entries)}
-                    </td>
-                    <td className="py-2 tabular-nums text-wl-ink-muted">
-                      {r.entries
-                        ? fmtFixed(
-                            Math.round((r.hours / r.entries) * 100) /
-                              100,
-                            2,
-                          )
-                        : '—'}
+                {byStaffTableRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="py-8 text-center text-sm text-wl-ink-muted"
+                    >
+                      No rows match these filters.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  byStaffTableRows.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-b border-wl-surface text-wl-ink last:border-b-0"
+                    >
+                      <td className="py-2 pr-4">
+                        <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-wl-teal-soft text-xs font-bold text-wl-teal-muted">
+                          {r.initials}
+                        </span>
+                        {r.name}
+                      </td>
+                      <td className="py-2 pr-4 tabular-nums font-semibold text-wl-ink">
+                        {fmtFixed(r.hours, 1)}
+                      </td>
+                      <td className="py-2 pr-4 tabular-nums text-wl-ink-muted">
+                        {fmtInt(r.entries)}
+                      </td>
+                      <td className="py-2 tabular-nums text-wl-ink-muted">
+                        {r.entries
+                          ? fmtFixed(
+                              Math.round((r.hours / r.entries) * 100) /
+                                100,
+                              2,
+                            )
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
