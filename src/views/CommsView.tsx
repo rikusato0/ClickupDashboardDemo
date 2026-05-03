@@ -1,4 +1,9 @@
-import { CommsSubTabs, type CommsSub } from '../components/CommsSubTabs'
+import { Building2, Users } from 'lucide-react'
+import { COMMS_SUB_TABS, type CommsSub } from '../components/CommsSubTabs'
+import { DateRangePicker } from '../components/DateRangePicker'
+import { FilterMultiSelect } from '../components/FilterMultiSelect'
+import { clients, staff } from '../data/mockDashboard'
+import { cn } from '../utils/cn'
 import { PatternsTab } from './comms/PatternsTab'
 import { ResponseTab } from './comms/ResponseTab'
 import { EmailTab } from './comms/EmailTab'
@@ -6,12 +11,19 @@ import { EmailTab } from './comms/EmailTab'
 export type CommsState = {
   commsSub: CommsSub
   setCommsSub: (next: CommsSub) => void
-  patternsClientId: string
-  setPatternsClientId: (next: string) => void
+  commsPeriodFrom: string
+  commsPeriodTo: string
+  setCommsPeriod: (from: string, to: string) => void
+  commsPeriodBaselineFrom: string
+  commsPeriodBaselineTo: string
+  commsFilterClients: string[] | null
+  setCommsFilterClients: (next: string[] | null) => void
+  commsFilterStaff: string[] | null
+  setCommsFilterStaff: (next: string[] | null) => void
+  commsOpenFilterId: string | null
+  setCommsOpenFilterId: (next: string | null) => void
   patternDrillId: string | null
   setPatternDrillId: (next: string | null) => void
-  respStaffFilter: string[] | null
-  setRespStaffFilter: (next: string[] | null) => void
   respAlertDirection: 'above' | 'below'
   setRespAlertDirection: (next: 'above' | 'below') => void
   respAlertThreshold: number
@@ -22,38 +34,108 @@ export default function CommsView({ state }: { state: CommsState }) {
   const {
     commsSub,
     setCommsSub,
-    patternsClientId,
-    setPatternsClientId,
+    commsPeriodFrom,
+    commsPeriodTo,
+    setCommsPeriod,
+    commsPeriodBaselineFrom,
+    commsPeriodBaselineTo,
+    commsFilterClients,
+    setCommsFilterClients,
+    commsFilterStaff,
+    setCommsFilterStaff,
+    commsOpenFilterId,
+    setCommsOpenFilterId,
     setPatternDrillId,
-    respStaffFilter,
-    setRespStaffFilter,
     respAlertDirection,
     setRespAlertDirection,
     respAlertThreshold,
     setRespAlertThreshold,
   } = state
 
+  const filterProps = {
+    commsPeriodFrom,
+    commsPeriodTo,
+    commsFilterClients,
+    commsFilterStaff,
+  }
+
   return (
     <div className="space-y-6">
-      <CommsSubTabs value={commsSub} onChange={setCommsSub} />
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap gap-2">
+          {COMMS_SUB_TABS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setCommsSub(id)}
+              className={cn(
+                'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
+                commsSub === id
+                  ? 'bg-wl-teal-soft text-wl-teal-muted'
+                  : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex w-full min-w-0 flex-col flex-wrap gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <DateRangePicker
+            from={commsPeriodFrom}
+            to={commsPeriodTo}
+            onChange={setCommsPeriod}
+            baselineFrom={commsPeriodBaselineFrom}
+            baselineTo={commsPeriodBaselineTo}
+            compact
+            className="w-full min-w-0 sm:w-auto"
+          />
+          <FilterMultiSelect
+            menuId="comms-staff"
+            isOpen={commsOpenFilterId === 'staff'}
+            onOpenChange={(open) =>
+              setCommsOpenFilterId(open ? 'staff' : null)
+            }
+            icon={Users}
+            label="Staff"
+            searchPlaceholder="Search staff…"
+            options={staff.map((s) => ({ id: s.id, label: s.name }))}
+            selected={commsFilterStaff}
+            onChange={setCommsFilterStaff}
+            buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
+          />
+          <FilterMultiSelect
+            menuId="comms-clients"
+            isOpen={commsOpenFilterId === 'clients'}
+            onOpenChange={(open) =>
+              setCommsOpenFilterId(open ? 'clients' : null)
+            }
+            icon={Building2}
+            label="Clients"
+            searchPlaceholder="Search clients…"
+            options={clients.map((c) => ({ id: c.id, label: c.name }))}
+            selected={commsFilterClients}
+            onChange={setCommsFilterClients}
+            buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
+          />
+        </div>
+      </div>
+
       {commsSub === 'patterns' && (
         <PatternsTab
-          patternsClientId={patternsClientId}
-          setPatternsClientId={setPatternsClientId}
+          {...filterProps}
           onOpenDrill={setPatternDrillId}
         />
       )}
       {commsSub === 'response' && (
         <ResponseTab
-          respStaffFilter={respStaffFilter}
-          setRespStaffFilter={setRespStaffFilter}
+          {...filterProps}
           respAlertDirection={respAlertDirection}
           setRespAlertDirection={setRespAlertDirection}
           respAlertThreshold={respAlertThreshold}
           setRespAlertThreshold={setRespAlertThreshold}
         />
       )}
-      {commsSub === 'email' && <EmailTab />}
+      {commsSub === 'email' && <EmailTab {...filterProps} />}
     </div>
   )
 }

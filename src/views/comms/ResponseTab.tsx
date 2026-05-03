@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,10 +15,6 @@ import {
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { Bell, TrendingDown, TrendingUp } from 'lucide-react'
-import {
-  getTeamMedianResponseMinutes,
-  staff,
-} from '../../data/mockDashboard'
 import { Card } from '../../components/Card'
 import {
   CHART_GRID,
@@ -35,187 +32,95 @@ import {
   responseSeverity,
 } from '../../constants/severity'
 import { cn } from '../../utils/cn'
-import { fmtFixed, fmtInt, fmtMinutes } from '../../utils/format'
+import { fmtFixed, fmtMinutes } from '../../utils/format'
 import { useCommsResponseData } from '../../hooks/useCommsResponseData'
+import { ResponseAlertSettingsDialog } from './ResponseAlertSettingsDialog'
 
 export function ResponseTab({
-  respStaffFilter,
-  setRespStaffFilter,
+  commsPeriodFrom,
+  commsPeriodTo,
+  commsFilterClients,
+  commsFilterStaff,
   respAlertDirection,
   setRespAlertDirection,
   respAlertThreshold,
   setRespAlertThreshold,
 }: {
-  respStaffFilter: string[] | null
-  setRespStaffFilter: (next: string[] | null) => void
+  commsPeriodFrom: string
+  commsPeriodTo: string
+  commsFilterClients: string[] | null
+  commsFilterStaff: string[] | null
   respAlertDirection: 'above' | 'below'
   setRespAlertDirection: (next: 'above' | 'below') => void
   respAlertThreshold: number
   setRespAlertThreshold: (next: number) => void
 }) {
-  const teamMedian = getTeamMedianResponseMinutes()
+  const [alertOpen, setAlertOpen] = useState(false)
 
   const {
+    teamMedian,
     respByStaff,
     respByContactPriority,
-    respByClient,
-    respAlerts,
     respTrend,
   } = useCommsResponseData({
-    respStaffFilter,
-    respAlertDirection,
-    respAlertThreshold,
+    commsPeriodFrom,
+    commsPeriodTo,
+    commsFilterClients,
+    commsFilterStaff,
   })
 
   return (
     <>
-      <Card
-        title="Response-time alerts"
-        subtitle="Get notified when a client's median response time crosses your threshold."
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-wl-orange/10 text-wl-orange">
-            <Bell className="h-4 w-4" />
-          </span>
-          <span className="text-sm font-medium text-wl-ink">
-            Alert when client median is
-          </span>
-          <select
-            value={respAlertDirection}
-            onChange={(e) =>
-              setRespAlertDirection(
-                e.target.value as 'above' | 'below',
-              )
-            }
-            className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
-            aria-label="Alert direction"
-          >
-            <option value="above">above</option>
-            <option value="below">below</option>
-          </select>
-          <input
-            type="number"
-            min={0}
-            step={5}
-            value={respAlertThreshold}
-            onChange={(e) =>
-              setRespAlertThreshold(
-                Math.max(0, Number(e.target.value) || 0),
-              )
-            }
-            className="w-24 rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium tabular-nums text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
-            aria-label="Threshold in minutes"
-          />
-          <span className="text-sm font-medium text-wl-ink-muted">
-            minutes
-          </span>
-        </div>
-        <div className="mt-4">
-          {respAlerts.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-wl-surface bg-wl-page py-6 text-center text-xs text-wl-ink-muted">
-              No clients are currently {respAlertDirection} the{' '}
-              {fmtMinutes(respAlertThreshold)} threshold.
-            </p>
-          ) : (
-            <div className="rounded-xl border border-wl-surface bg-wl-page p-2">
-              <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-wl-ink-muted">
-                <span>
-                  <span className="font-semibold text-wl-orange">
-                    {fmtInt(respAlerts.length)}
-                  </span>{' '}
-                  of {fmtInt(respByClient.length)} clients{' '}
-                  {respAlertDirection} {fmtMinutes(respAlertThreshold)}
-                </span>
-                {respAlerts.length > 5 && (
-                  <span className="text-[10px] uppercase tracking-wide">
-                    Scroll for more
-                  </span>
-                )}
-              </div>
-              <ul
-                className="max-h-72 space-y-2 overflow-y-auto pr-1"
-                role="list"
-              >
-              {respAlerts.map((a) => {
-                const sev = responseSeverity(a.median)
-                return (
-                <li
-                  key={a.clientId}
-                  className={cn(
-                    'flex items-center justify-between gap-3 rounded-xl px-3 py-2',
-                    SEVERITY_BADGE[sev],
-                  )}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className={cn(
-                        'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/60',
-                        SEVERITY_TEXT[sev],
-                      )}
-                    >
-                      <Bell className="h-3.5 w-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-wl-ink">
-                        {a.clientName}
-                      </div>
-                      <div className="truncate text-xs text-wl-ink-muted">
-                        Median{' '}
-                        <span
-                          className={cn(
-                            'font-semibold',
-                            SEVERITY_TEXT[sev],
-                          )}
-                        >
-                          {fmtMinutes(a.median)}
-                        </span>{' '}
-                        · threshold {fmtMinutes(respAlertThreshold)}
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide',
-                      SEVERITY_BADGE[sev],
-                    )}
-                  >
-                    {SEVERITY_LABEL[sev]}
-                  </span>
-                </li>
-                )
-              })}
-              </ul>
-            </div>
-          )}
-        </div>
-        <p className="mt-3 text-[11px] text-wl-ink-muted">
-          Demo only — settings reset on reload. In production these would post to your firm's notification service.
-        </p>
-      </Card>
+      <div className="flex flex-wrap justify-end">
+        <button
+          type="button"
+          onClick={() => setAlertOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-4 py-2 text-sm font-semibold text-wl-ink shadow-sm transition hover:border-wl-teal/40"
+        >
+          <Bell className="h-4 w-4 text-wl-orange" />
+          Alert settings
+        </button>
+      </div>
+
+      <ResponseAlertSettingsDialog
+        open={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        direction={respAlertDirection}
+        onDirectionChange={setRespAlertDirection}
+        thresholdMinutes={respAlertThreshold}
+        onThresholdChange={setRespAlertThreshold}
+      />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Team median response">
           {(() => {
-            const sev = responseSeverity(teamMedian)
+            const sev =
+              teamMedian <= 0
+                ? ('fast' as const)
+                : responseSeverity(teamMedian)
             return (
               <>
                 <div className="flex items-baseline gap-3">
                   <p
                     className={cn(
                       'text-3xl font-bold',
-                      SEVERITY_TEXT[sev],
+                      teamMedian <= 0
+                        ? 'text-wl-ink-muted'
+                        : SEVERITY_TEXT[sev],
                     )}
                   >
-                    {fmtMinutes(teamMedian)}
+                    {teamMedian <= 0 ? '—' : fmtMinutes(teamMedian)}
                   </p>
-                  <span
-                    className={cn(
-                      'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                      SEVERITY_BADGE[sev],
-                    )}
-                  >
-                    {SEVERITY_LABEL[sev]}
-                  </span>
+                  {teamMedian > 0 && (
+                    <span
+                      className={cn(
+                        'rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                        SEVERITY_BADGE[sev],
+                      )}
+                    >
+                      {SEVERITY_LABEL[sev]}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-wl-ink-muted">
                   Across all client–staff pairs
@@ -327,7 +232,7 @@ export function ResponseTab({
 
       <Card
         title="Response time trend"
-        subtitle="Daily team median over the last 6 months — are we trending up or down?"
+        subtitle="Daily team median for the dates in your toolbar — 14-day average compares the start vs end of that window."
       >
         {(() => {
           const sevNow = responseSeverity(respTrend.last14Avg)
@@ -470,51 +375,6 @@ export function ResponseTab({
         </div>
       </Card>
 
-      <Card title="Filter — staff included in rollups">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setRespStaffFilter(null)}
-            className={cn(
-              'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
-              respStaffFilter === null
-                ? 'bg-wl-teal-soft text-wl-teal-muted'
-                : 'text-wl-ink-muted hover:bg-wl-surface/50 hover:text-wl-ink',
-            )}
-          >
-            All staff
-          </button>
-          {staff.slice(0, 6).map((s) => {
-            const on =
-              respStaffFilter !== null && respStaffFilter.includes(s.id)
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  if (respStaffFilter === null) {
-                    setRespStaffFilter([s.id])
-                  } else if (respStaffFilter.includes(s.id)) {
-                    const next = respStaffFilter.filter((x) => x !== s.id)
-                    setRespStaffFilter(next.length === 0 ? null : next)
-                  } else {
-                    setRespStaffFilter([...respStaffFilter, s.id])
-                  }
-                }}
-                className={cn(
-                  'rounded-md px-3.5 py-1.5 text-sm font-medium leading-[1.23rem] transition-colors',
-                  on
-                    ? 'bg-wl-teal-soft text-wl-teal-muted'
-                    : 'border border-wl-surface bg-wl-card text-wl-ink-muted hover:text-wl-ink',
-                )}
-              >
-                {s.initials}
-              </button>
-            )
-          })}
-        </div>
-      </Card>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Median response by staff">
           <div className="h-72">
@@ -555,6 +415,7 @@ export function ResponseTab({
         <Card title="By client contact / role">
           <div className="max-h-72 space-y-2 overflow-y-auto pr-1 text-sm">
             {respByContactPriority
+              .filter((row) => row.median > 0)
               .sort((a, b) => a.median - b.median)
               .map((row) => {
                 const sev = responseSeverity(row.median)

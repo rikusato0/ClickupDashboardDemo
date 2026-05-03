@@ -70,9 +70,18 @@ export default function App() {
   const [commsSub, setCommsSub] = useState<'patterns' | 'response' | 'email'>(
     'patterns',
   )
-  const [patternsClientId, setPatternsClientId] = useState<string>('c1')
+  const [commsPeriodFrom, setCommsPeriodFrom] = useState(BASELINE_FROM)
+  const [commsPeriodTo, setCommsPeriodTo] = useState(BASELINE_TO)
+  const [commsFilterClients, setCommsFilterClients] = useState<string[] | null>(
+    null,
+  )
+  const [commsFilterStaff, setCommsFilterStaff] = useState<string[] | null>(
+    null,
+  )
+  const [commsOpenFilterId, setCommsOpenFilterId] = useState<string | null>(
+    null,
+  )
   const [patternDrillId, setPatternDrillId] = useState<string | null>(null)
-  const [respStaffFilter, setRespStaffFilter] = useState<string[] | null>(null)
   const [respAlertDirection, setRespAlertDirection] = useState<'above' | 'below'>(
     'above',
   )
@@ -117,7 +126,9 @@ export default function App() {
   // the user navigates away from the originating view (matches original
   // top-level rendering).
   const { patternDrill } = useCommsPatternsData({
-    patternsClientId,
+    commsFilterClients,
+    commsPeriodFrom,
+    commsPeriodTo,
     patternDrillId,
   })
   const { sentimentDrillData } = useSentimentData({
@@ -187,12 +198,22 @@ export default function App() {
   const commsState: CommsState = {
     commsSub,
     setCommsSub,
-    patternsClientId,
-    setPatternsClientId,
+    commsPeriodFrom,
+    commsPeriodTo,
+    setCommsPeriod: (from, to) => {
+      setCommsPeriodFrom(from)
+      setCommsPeriodTo(to)
+    },
+    commsPeriodBaselineFrom: BASELINE_FROM,
+    commsPeriodBaselineTo: BASELINE_TO,
+    commsFilterClients,
+    setCommsFilterClients,
+    commsFilterStaff,
+    setCommsFilterStaff,
+    commsOpenFilterId,
+    setCommsOpenFilterId,
     patternDrillId,
     setPatternDrillId,
-    respStaffFilter,
-    setRespStaffFilter,
     respAlertDirection,
     setRespAlertDirection,
     respAlertThreshold,
@@ -265,6 +286,7 @@ export default function App() {
                   onClick={() => {
                     setNav(item.id)
                     setOpenFilterId(null)
+                    setCommsOpenFilterId(null)
                   }}
                   className={cn(
                     'flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors',

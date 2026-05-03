@@ -120,7 +120,7 @@ export const COMMS_CATEGORIES = [
   'Recurring requests',
   'Seasonal events',
   'Bottlenecks',
-  'Urgencies',
+  'Emergencies',
   'Relationship notes',
   'Ad hoc requests',
 ] as const
@@ -130,7 +130,7 @@ export const COMMS_CATEGORY_COLORS: Record<CommsCategory, string> = {
   'Recurring requests': '#06b6d4',
   'Seasonal events': '#0891b2',
   Bottlenecks: '#ff8500',
-  Urgencies: '#e11d48',
+  Emergencies: '#e11d48',
   'Relationship notes': '#0e7490',
   'Ad hoc requests': '#67e8f9',
 }
@@ -683,7 +683,7 @@ const PATTERN_TRENDS_DEFS: {
   { id: 'pat-close', label: 'Month-end close support', category: 'Seasonal events', baseline: 18, growth: 1.2 },
   { id: 'pat-1099', label: 'Year-end 1099 cleanup', category: 'Seasonal events', baseline: 8, growth: 0.4 },
   { id: 'pat-payroll', label: 'Payroll provider bridge issues', category: 'Bottlenecks', baseline: 12, growth: 0.6 },
-  { id: 'pat-wire', label: 'Wire approval delays', category: 'Urgencies', baseline: 6, growth: 0.3 },
+  { id: 'pat-wire', label: 'Wire approval delays', category: 'Emergencies', baseline: 6, growth: 0.3 },
   { id: 'pat-rel', label: 'Owner / ED relationship check-ins', category: 'Relationship notes', baseline: 10, growth: -0.1 },
   { id: 'pat-adhoc', label: 'Random Q&A from contacts', category: 'Ad hoc requests', baseline: 28, growth: 0.8 },
 ]
@@ -711,7 +711,7 @@ export const monthlyPatternsByClient: MonthlyPatternByClient[] = (() => {
       for (const cat of COMMS_CATEGORIES) {
         let base =
           (heavy ? 22 : 9) + Math.floor(rng() * (heavy ? 18 : 10))
-        if (cat === 'Urgencies' && (c.id === 'c2' || c.id === 'c8')) base += 6
+        if (cat === 'Emergencies' && (c.id === 'c2' || c.id === 'c8')) base += 6
         if (cat === 'Recurring requests' && heavy) base += 4
         if (cat === 'Ad hoc requests') base += Math.floor(rng() * 8)
         out.push({ clientId: c.id, month, category: cat, volume: base })

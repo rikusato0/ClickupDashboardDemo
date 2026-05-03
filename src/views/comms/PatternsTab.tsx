@@ -36,12 +36,14 @@ import { fmtFixed, fmtInt } from '../../utils/format'
 import { useCommsPatternsData } from '../../hooks/useCommsPatternsData'
 
 export function PatternsTab({
-  patternsClientId,
-  setPatternsClientId,
+  commsFilterClients,
+  commsPeriodFrom,
+  commsPeriodTo,
   onOpenDrill,
 }: {
-  patternsClientId: string
-  setPatternsClientId: (next: string) => void
+  commsFilterClients: string[] | null
+  commsPeriodFrom: string
+  commsPeriodTo: string
   onOpenDrill: (id: string) => void
 }) {
   const {
@@ -49,7 +51,9 @@ export function PatternsTab({
     monthlyPatternsForClient,
     upcomingPredictedNeeds,
   } = useCommsPatternsData({
-    patternsClientId,
+    commsFilterClients,
+    commsPeriodFrom,
+    commsPeriodTo,
     patternDrillId: null,
   })
 
@@ -221,22 +225,8 @@ export function PatternsTab({
       </div>
 
       <Card
-        title="Per-client monthly breakdown"
-        subtitle="How a single client's inbound mix has moved across the last 6 months."
-        action={
-          <select
-            value={patternsClientId}
-            onChange={(e) => setPatternsClientId(e.target.value)}
-            className="rounded-lg border border-wl-surface bg-wl-card px-3 py-1.5 text-sm font-medium text-wl-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-wl-teal/30"
-            aria-label="Client"
-          >
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        }
+        title="Monthly breakdown"
+        subtitle="Stacked inbound mix for the clients and months in your toolbar filters."
       >
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -368,10 +358,6 @@ export function PatternsTab({
             )
           })}
         </ul>
-        <p className="mt-3 text-[11px] text-wl-ink-muted">
-          Demo only — reminders aren't actually being sent. Hook this up
-          to your firm's notification service when ready.
-        </p>
       </Card>
     </>
   )

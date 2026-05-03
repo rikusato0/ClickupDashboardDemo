@@ -20,15 +20,35 @@ import {
 import { fmtFixed, fmtInt } from '../../utils/format'
 import { useCommsEmailData } from '../../hooks/useCommsEmailData'
 
-export function EmailTab() {
+export function EmailTab({
+  commsPeriodFrom,
+  commsPeriodTo,
+  commsFilterClients,
+  commsFilterStaff,
+}: {
+  commsPeriodFrom: string
+  commsPeriodTo: string
+  commsFilterClients: string[] | null
+  commsFilterStaff: string[] | null
+}) {
   const { inboundWeekly, inboundTopClients, last4WeeksEmail } =
-    useCommsEmailData()
+    useCommsEmailData({
+      commsPeriodFrom,
+      commsPeriodTo,
+      commsFilterClients,
+      commsFilterStaff,
+    })
+
+  const staffForList =
+    commsFilterStaff === null
+      ? staff
+      : staff.filter((s) => commsFilterStaff.includes(s.id))
 
   return (
     <>
       <Card
         title="Email volume vs logged time"
-        subtitle="Recent weeks — team totals and per staff member."
+        subtitle="Recent weeks in your toolbar range — team totals and per staff member."
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="h-72">
@@ -81,8 +101,14 @@ export function EmailTab() {
             </ResponsiveContainer>
           </div>
           <div className="max-h-72 space-y-2 overflow-y-auto text-sm">
-            {staff.map((s) => {
-              const last = weeklyEmailVolume.filter((w) => w.staffId === s.id).slice(-4)
+            {staffForList.map((s) => {
+              const chartWeekSet = new Set(
+                last4WeeksEmail.map((r) => String(r.week)),
+              )
+              const last = weeklyEmailVolume.filter(
+                (w) =>
+                  w.staffId === s.id && chartWeekSet.has(w.weekStart),
+              )
               const sent = last.reduce((a, x) => a + x.sent, 0)
               const hrs = last.reduce((a, x) => a + x.loggedHours, 0)
               const ratio = hrs ? sent / hrs : 0
@@ -98,7 +124,7 @@ export function EmailTab() {
                     <div>
                       <div className="font-medium text-wl-ink">{s.name}</div>
                       <div className="text-xs text-wl-ink-muted">
-                        Last 4 wks · {fmtInt(sent)} sent ·{' '}
+                        Weeks in view · {fmtInt(sent)} sent ·{' '}
                         {fmtFixed(Math.round(hrs * 10) / 10, 1)}h logged
                       </div>
                     </div>
@@ -120,7 +146,7 @@ export function EmailTab() {
 
       <Card
         title="Inbound emails from clients"
-        subtitle="Last 12 weeks — how many messages clients are sending us."
+        subtitle="Weeks in your toolbar range — how many messages clients are sending us."
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="h-72">
@@ -165,7 +191,7 @@ export function EmailTab() {
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-              <span>Top clients · last 4 weeks</span>
+              <span>Top clients · recent window</span>
               <span className="tabular-nums">
                 {fmtInt(
                   inboundTopClients.reduce(

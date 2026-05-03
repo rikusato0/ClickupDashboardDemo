@@ -7,18 +7,10 @@ import {
   staff,
 } from '../data/mockDashboard'
 
-/**
- * 6-month daily series with a 14-day rolling average so the chart can
- * render both the raw daily noise and a smoothed trend line. Computed
- * once at module load — the underlying data is static.
- */
-const RESP_TREND = (() => {
+function buildRespTrend(daily: typeof dailyResponseTimes) {
   const windowSize = 14
-  const series = dailyResponseTimes.map((d, i) => {
-    const slice = dailyResponseTimes.slice(
-      Math.max(0, i - windowSize + 1),
-      i + 1,
-    )
+  const series = daily.map((d, i) => {
+    const slice = daily.slice(Math.max(0, i - windowSize + 1), i + 1)
     const avg =
       slice.reduce((a, x) => a + x.medianMinutes, 0) /
       Math.max(1, slice.length)
@@ -43,23 +35,53 @@ const RESP_TREND = (() => {
   const change =
     first14Avg > 0 ? (last14Avg - first14Avg) / first14Avg : 0
   return { series, first14Avg, last14Avg, change }
-})()
+}
+
+const contactById = new Map(clientContacts.map((c) => [c.id, c]))
 
 export function useCommsResponseData(opts: {
-  respStaffFilter: string[] | null
-  respAlertDirection: 'above' | 'below'
-  respAlertThreshold: number
+  commsPeriodFrom: string
+  commsPeriodTo: string
+  commsFilterClients: string[] | null
+  commsFilterStaff: string[] | null
 }) {
-  const { respStaffFilter, respAlertDirection, respAlertThreshold } = opts
+  const { commsPeriodFrom, commsPeriodTo, commsFilterClients, commsFilterStaff } =
+    opts
+
+  const filteredResponseRows = useMemo(() => {
+    return responseByContact.filter((r) => {
+      if (
+        commsFilterStaff !== null &&
+        !commsFilterStaff.includes(r.staffId)
+      ) {
+        return false
+      }
+      const contact = contactById.get(r.contactId)
+      if (!contact) return false
+      if (
+        commsFilterClients !== null &&
+        !commsFilterClients.includes(contact.clientId)
+      ) {
+        return false
+      }
+      return true
+    })
+  }, [commsFilterClients, commsFilterStaff])
+
+  const teamMedian = useMemo(() => {
+    const vals = filteredResponseRows
+      .map((r) => r.medianMinutes)
+      .sort((a, b) => a - b)
+    if (vals.length === 0) return 0
+    const mid = Math.floor(vals.length / 2)
+    return vals.length % 2
+      ? vals[mid]!
+      : (vals[mid - 1]! + vals[mid]!) / 2
+  }, [filteredResponseRows])
 
   const respByStaff = useMemo(() => {
     const agg = new Map<string, number[]>()
-    for (const r of responseByContact) {
-      if (
-        respStaffFilter !== null &&
-        !respStaffFilter.includes(r.staffId)
-      )
-        continue
+    for (const r of filteredResponseRows) {
       if (!agg.has(r.staffId)) agg.set(r.staffId, [])
       agg.get(r.staffId)!.push(r.medianMinutes)
     }
@@ -80,25 +102,34 @@ export function useCommsResponseData(opts: {
       })
       .filter((r) => r.samples > 0)
       .sort((a, b) => a.median - b.median)
-  }, [respStaffFilter])
+  }, [filteredResponseRows])
 
   const respByContactPriority = useMemo(() => {
-    return clientContacts.map((c) => {
-      const related = responseByContact.filter((r) => r.contactId === c.id)
-      const medians = related.map((r) => r.medianMinutes).sort((a, b) => a - b)
-      const med =
-        medians.length === 0
-          ? 0
-          : medians[Math.floor(medians.length / 2)]!
-      const client = clients.find((x) => x.id === c.clientId)!
-      return {
-        ...c,
-        clientName: client.name,
-        median: med,
-        priority: c.priority,
-      }
-    })
-  }, [])
+    return clientContacts
+      .filter((c) => {
+        if (commsFilterClients === null) return true
+        return commsFilterClients.includes(c.clientId)
+      })
+      .map((c) => {
+        const related = filteredResponseRows.filter(
+          (r) => r.contactId === c.id,
+        )
+        const medians = related
+          .map((r) => r.medianMinutes)
+          .sort((a, b) => a - b)
+        const med =
+          medians.length === 0
+            ? 0
+            : medians[Math.floor(medians.length / 2)]!
+        const client = clients.find((x) => x.id === c.clientId)!
+        return {
+          ...c,
+          clientName: client.name,
+          median: med,
+          priority: c.priority,
+        }
+      })
+  }, [filteredResponseRows, commsFilterClients])
 
   const respByClient = useMemo(() => {
     const groups = new Map<string, number[]>()
@@ -108,7 +139,11 @@ export function useCommsResponseData(opts: {
       list.push(row.median)
       groups.set(row.clientId, list)
     }
-    return clients
+    const clientPool =
+      commsFilterClients === null
+        ? clients
+        : clients.filter((c) => commsFilterClients.includes(c.id))
+    return clientPool
       .map((c) => {
         const samples = (groups.get(c.id) ?? []).sort((a, b) => a - b)
         const median =
@@ -124,21 +159,20 @@ export function useCommsResponseData(opts: {
       })
       .filter((r) => r.samples > 0)
       .sort((a, b) => b.median - a.median)
-  }, [respByContactPriority])
+  }, [respByContactPriority, commsFilterClients])
 
-  const respAlerts = useMemo(() => {
-    return respByClient.filter((r) =>
-      respAlertDirection === 'above'
-        ? r.median > respAlertThreshold
-        : r.median < respAlertThreshold,
+  const respTrend = useMemo(() => {
+    const daily = dailyResponseTimes.filter(
+      (d) => d.date >= commsPeriodFrom && d.date <= commsPeriodTo,
     )
-  }, [respByClient, respAlertDirection, respAlertThreshold])
+    return buildRespTrend(daily)
+  }, [commsPeriodFrom, commsPeriodTo])
 
   return {
+    teamMedian,
     respByStaff,
     respByContactPriority,
     respByClient,
-    respAlerts,
-    respTrend: RESP_TREND,
+    respTrend,
   }
 }

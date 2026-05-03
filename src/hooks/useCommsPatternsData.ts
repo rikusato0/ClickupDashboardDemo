@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import {
+  clients,
   COMMS_CATEGORIES,
   type CommsCategory,
   monthlyPatternsByClient,
@@ -9,10 +10,13 @@ import {
 } from '../data/mockDashboard'
 
 export function useCommsPatternsData(opts: {
-  patternsClientId: string
+  commsFilterClients: string[] | null
+  commsPeriodFrom: string
+  commsPeriodTo: string
   patternDrillId: string | null
 }) {
-  const { patternsClientId, patternDrillId } = opts
+  const { commsFilterClients, commsPeriodFrom, commsPeriodTo, patternDrillId } =
+    opts
 
   const patternMixTotals = useMemo(() => {
     const totals = new Map<CommsCategory, number>()
@@ -27,29 +31,39 @@ export function useCommsPatternsData(opts: {
   }, [])
 
   const monthlyPatternsForClient = useMemo(() => {
-    const months = [
-      ...new Set(monthlyPatternsByClient.map((m) => m.month)),
-    ].sort()
+    const clientIds =
+      commsFilterClients === null
+        ? clients.map((c) => c.id)
+        : commsFilterClients
+    const fromMonth = commsPeriodFrom.slice(0, 7)
+    const toMonth = commsPeriodTo.slice(0, 7)
+    const monthSet = new Set(monthlyPatternsByClient.map((m) => m.month))
+    const months = [...monthSet].sort().filter((m) => m >= fromMonth && m <= toMonth)
+
     return months.map((month) => {
       const row: Record<string, string | number> = { month }
       for (const cat of COMMS_CATEGORIES) {
-        const cell = monthlyPatternsByClient.find(
-          (m) =>
-            m.clientId === patternsClientId &&
-            m.month === month &&
-            m.category === cat,
-        )
-        row[cat] = cell?.volume ?? 0
+        let sum = 0
+        for (const cid of clientIds) {
+          const cell = monthlyPatternsByClient.find(
+            (x) =>
+              x.clientId === cid && x.month === month && x.category === cat,
+          )
+          sum += cell?.volume ?? 0
+        }
+        row[cat] = sum
       }
       return row
     })
-  }, [patternsClientId])
+  }, [commsFilterClients, commsPeriodFrom, commsPeriodTo])
 
   const upcomingPredictedNeeds = useMemo(() => {
-    return [...predictedClientNeeds].sort((a, b) =>
-      a.dueDate.localeCompare(b.dueDate),
-    )
-  }, [])
+    const allow =
+      commsFilterClients === null ? null : new Set(commsFilterClients)
+    return [...predictedClientNeeds]
+      .filter((n) => allow === null || allow.has(n.clientId))
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  }, [commsFilterClients])
 
   const patternDrill = useMemo(() => {
     if (!patternDrillId) return null
