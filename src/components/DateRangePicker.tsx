@@ -144,19 +144,33 @@ export function DateRangePicker({
           if (!open) setViewMonth(parseISO(from))
           setOpen(!open)
         }}
-        className="flex w-full max-w-md items-center gap-2 rounded-lg border border-wl-surface bg-wl-card py-2 pl-3 pr-2 text-left text-sm font-medium text-wl-ink shadow-sm transition hover:border-wl-teal/40 lg:max-w-none lg:pr-3"
+        className={cn(
+          'flex w-full max-w-md min-w-0 items-center gap-2 rounded-xl border border-wl-surface bg-wl-card py-2.5 pl-3 pr-2 text-left shadow-sm transition',
+          'hover:border-wl-teal/35 focus:outline-none focus:ring-2 focus:ring-wl-teal/25 lg:max-w-none',
+          open && 'border-wl-teal/50 ring-2 ring-wl-teal/20',
+        )}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <CalendarRange className="h-4 w-4 shrink-0 text-wl-ink-muted" />
-        <span className="tabular-nums">{format(fromD, 'MM/dd/yyyy')}</span>
-        <span className="text-wl-ink-muted">–</span>
-        <span className="tabular-nums">{format(toD, 'MM/dd/yyyy')}</span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wl-teal-soft text-wl-teal">
+          <CalendarRange className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] text-wl-ink-muted">
+            Reporting period
+          </span>
+          <span className="mt-0.5 block truncate text-sm font-semibold tabular-nums text-wl-ink">
+            {format(fromD, 'MM/dd/yyyy')}
+            <span className="text-wl-ink-muted font-medium"> – </span>
+            {format(toD, 'MM/dd/yyyy')}
+          </span>
+        </span>
         <ChevronDown
           className={cn(
-            'ml-auto h-4 w-4 shrink-0 text-wl-ink-muted transition',
+            'h-4 w-4 shrink-0 text-wl-ink-muted transition',
             open && 'rotate-180',
           )}
+          aria-hidden
         />
       </button>
 
