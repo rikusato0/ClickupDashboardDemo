@@ -43,7 +43,7 @@ import { useTimesheetsData } from '../hooks/useTimesheetsData'
 
 /** Near full-viewport scroll region for timesheet tables. */
 const TIMESHEET_TABLE_SCROLL_CLASS =
-  'h-[calc(70dvh-11rem)] min-h-[24rem] overflow-auto'
+  'h-[calc(80dvh-11rem)] min-h-[24rem] overflow-auto'
 
 /** Bar color: light green (low hours) → deep green (high hours), within current data range. */
 function hoursToBarColor(hours: number, minH: number, maxH: number) {
