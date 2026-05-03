@@ -4,6 +4,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
+  type RefObject,
 } from 'react'
 import { Building2, Check, Search } from 'lucide-react'
 import type { Client } from '../data/mockDashboard'
@@ -50,12 +52,80 @@ function filterClients(clients: Client[], q: string) {
   )
 }
 
+/** Shared chrome so every tab’s picker looks identical. */
+const triggerClassName = (open: boolean, extra?: string) =>
+  cn(
+    'flex w-full min-w-0 items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-0 text-left text-sm text-wl-ink shadow-sm transition',
+    'h-10 min-h-10 hover:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/25',
+    open && 'border-wl-teal/50 ring-2 ring-wl-teal/20',
+    extra,
+  )
+
+const PANEL_SHELL =
+  'w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-xl border border-wl-surface bg-wl-card py-1 shadow-xl shadow-slate-900/10 sm:w-[22rem]'
+
+const SEARCH_INPUT =
+  'w-full rounded-lg border border-wl-surface bg-wl-page py-2 pl-8 pr-3 text-sm text-wl-ink placeholder:text-wl-ink-muted/70 focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25'
+
+function ClientRowAvatar({
+  label,
+  active,
+}: {
+  label: string
+  active: boolean
+}) {
+  return (
+    <span
+      className={cn(
+        'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
+        active
+          ? 'bg-wl-teal text-white'
+          : 'bg-wl-page text-wl-ink-muted',
+      )}
+      aria-hidden
+    >
+      {label}
+    </span>
+  )
+}
+
+function ClientRowBody({
+  client: c,
+  dimmed,
+  trailing,
+}: {
+  client: Client
+  dimmed?: boolean
+  trailing?: ReactNode
+}) {
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="flex items-center gap-1.5">
+        <span
+          className={cn(
+            'truncate text-sm font-semibold text-wl-ink',
+            dimmed && 'text-wl-ink-muted',
+          )}
+        >
+          {c.name}
+        </span>
+        {trailing}
+      </span>
+      <span className="mt-0.5 block truncate text-[11px] text-wl-ink-muted">
+        {c.domain}
+      </span>
+      <span className="mt-1 inline-flex max-w-full truncate rounded-md bg-wl-page px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-wl-ink-muted">
+        {c.segment}
+      </span>
+    </span>
+  )
+}
+
 export type ClientPickerSingleProps = {
   mode: 'single'
   clients: Client[]
   value: string | null
   onChange: (clientId: string | null) => void
-  /** Adds an “All companies” row (value `null`). */
   allowAllCompanies?: boolean
   className?: string
   'aria-label'?: string
@@ -69,6 +139,8 @@ export type ClientPickerMultiProps = {
   onOpenChange: (open: boolean) => void
   selected: string[] | null
   onChange: (v: string[] | null) => void
+  /** Applied to the outer wrapper (e.g. width in toolbars). */
+  className?: string
   buttonClassName?: string
 }
 
@@ -79,6 +151,65 @@ export function ClientPicker(props: ClientPickerProps) {
     return <ClientPickerMulti {...props} />
   }
   return <ClientPickerSingle {...props} />
+}
+
+function PickerTriggerButton({
+  open,
+  onClick,
+  summary,
+  ariaProps,
+  buttonClassName,
+}: {
+  open: boolean
+  onClick: () => void
+  summary: string
+  ariaProps: { 'aria-label'?: string; 'aria-expanded': boolean }
+  buttonClassName?: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-haspopup="listbox"
+      {...ariaProps}
+      onClick={onClick}
+      className={triggerClassName(open, buttonClassName)}
+    >
+      <Building2 className="h-3.5 w-3.5 shrink-0 text-wl-ink-muted" aria-hidden />
+      <span className="shrink-0 font-semibold uppercase tracking-wide text-wl-ink-muted">
+        Client:
+      </span>
+      <span className="min-w-0 max-w-[min(100%,12rem)] flex-1 truncate font-medium text-wl-ink sm:max-w-[14rem]">
+        {summary}
+      </span>
+    </button>
+  )
+}
+
+function SearchField({
+  query,
+  onQuery,
+  inputRef,
+}: {
+  query: string
+  onQuery: (q: string) => void
+  inputRef?: RefObject<HTMLInputElement | null>
+}) {
+  return (
+    <div className="border-b border-wl-surface px-2 pb-2 pt-1.5">
+      <label className="relative block">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-wl-ink-muted" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder="Search name, domain, industry…"
+          className={SEARCH_INPUT}
+          autoComplete="off"
+        />
+      </label>
+    </div>
+  )
 }
 
 function ClientPickerSingle({
@@ -139,49 +270,29 @@ function ClientPickerSingle({
 
   return (
     <div ref={rootRef} className={cn('relative', className)}>
-      <button
-        type="button"
-        aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
+      <PickerTriggerButton
+        open={open}
         onClick={() => {
           setOpen((o) => !o)
           if (!open) setQuery('')
         }}
-        className={cn(
-          'flex w-full min-w-0 items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-0 text-left text-sm text-wl-ink shadow-sm transition',
-          'h-10 min-h-10 hover:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/25',
-          open && 'border-wl-teal/50 ring-2 ring-wl-teal/20',
-        )}
-      >
-        <Building2 className="h-3.5 w-3.5 shrink-0 text-wl-ink-muted" aria-hidden />
-        <span className="shrink-0 font-semibold uppercase tracking-wide text-wl-ink-muted">
-          Client:
-        </span>
-        <span className="min-w-0 max-w-[min(100%,12rem)] flex-1 truncate font-medium text-wl-ink sm:max-w-[14rem]">
-          {labelText}
-        </span>
-      </button>
+        summary={labelText}
+        ariaProps={{
+          'aria-label': ariaLabel,
+          'aria-expanded': open,
+        }}
+      />
 
       {open && (
         <div
-          className="absolute right-0 z-50 mt-2 w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-xl border border-wl-surface bg-wl-card py-1 shadow-xl shadow-slate-900/10 sm:w-[22rem]"
+          className={cn(
+            'absolute right-0 z-50 mt-2',
+            PANEL_SHELL,
+          )}
           role="listbox"
           aria-label={ariaLabel}
         >
-          <div className="border-b border-wl-surface px-2 pb-2 pt-1.5">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-wl-ink-muted" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search name, domain, industry…"
-                className="w-full rounded-lg border border-wl-surface bg-wl-page py-2 pl-8 pr-3 text-sm text-wl-ink placeholder:text-wl-ink-muted/70 focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
-                autoComplete="off"
-              />
-            </label>
-          </div>
+          <SearchField query={query} onQuery={setQuery} />
           <ul
             ref={listRef}
             className="max-h-64 overflow-y-auto py-1"
@@ -200,21 +311,11 @@ function ClientPickerSingle({
                     setQuery('')
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition',
+                    'flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition',
                     value === null ? 'bg-wl-teal-soft' : 'hover:bg-wl-page',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
-                      value === null
-                        ? 'bg-wl-teal text-white'
-                        : 'bg-wl-page text-wl-ink-muted',
-                    )}
-                    aria-hidden
-                  >
-                    All
-                  </span>
+                  <ClientRowAvatar label="All" active={value === null} />
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span className="text-sm font-semibold text-wl-ink">
                       All companies
@@ -250,33 +351,18 @@ function ClientPickerSingle({
                         active ? 'bg-wl-teal-soft' : 'hover:bg-wl-page',
                       )}
                     >
-                      <span
-                        className={cn(
-                          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
-                          active
-                            ? 'bg-wl-teal text-white'
-                            : 'bg-wl-page text-wl-ink-muted',
-                        )}
-                        aria-hidden
-                      >
-                        {clientInitials(c.name)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate text-sm font-semibold text-wl-ink">
-                            {c.name}
-                          </span>
-                          {active && (
+                      <ClientRowAvatar
+                        label={clientInitials(c.name)}
+                        active={active}
+                      />
+                      <ClientRowBody
+                        client={c}
+                        trailing={
+                          active ? (
                             <Check className="h-3.5 w-3.5 shrink-0 text-wl-teal" aria-hidden />
-                          )}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[11px] text-wl-ink-muted">
-                          {c.domain}
-                        </span>
-                        <span className="mt-1 inline-flex max-w-full truncate rounded-md bg-wl-page px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-wl-ink-muted">
-                          {c.segment}
-                        </span>
-                      </span>
+                          ) : undefined
+                        }
+                      />
                     </button>
                   </li>
                 )
@@ -296,6 +382,7 @@ function ClientPickerMulti({
   onOpenChange,
   selected,
   onChange,
+  className,
   buttonClassName,
 }: ClientPickerMultiProps) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -357,11 +444,9 @@ function ClientPickerMulti({
           : `${fmtInt(selected.length)} selected`
 
   return (
-    <div ref={rootRef} className="relative" data-filter-menu={menuId}>
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
+    <div ref={rootRef} className={cn('relative', className)} data-filter-menu={menuId}>
+      <PickerTriggerButton
+        open={isOpen}
         onClick={() => {
           if (isOpen) {
             setQuery('')
@@ -371,41 +456,24 @@ function ClientPickerMulti({
             onOpenChange(true)
           }
         }}
-        className={cn(
-          'flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-left text-xs text-wl-ink shadow-sm transition hover:border-wl-teal/40',
-          buttonClassName,
-        )}
-      >
-        <Building2 className="h-3.5 w-3.5 text-wl-ink-muted" />
-        <span className="font-semibold uppercase tracking-wide text-wl-ink-muted">
-          Clients:
-        </span>
-        <span className="max-w-[140px] truncate font-medium text-wl-ink">
-          {summary}
-        </span>
-      </button>
+        summary={summary}
+        ariaProps={{ 'aria-expanded': isOpen }}
+        buttonClassName={buttonClassName}
+      />
       {isOpen && (
         <div
           className={cn(
-            'absolute z-30 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-xl border border-wl-surface bg-wl-card shadow-xl shadow-slate-900/10',
+            'absolute z-30',
+            PANEL_SHELL,
             menuAlign.y === 'below' ? 'top-full mt-1' : 'bottom-full mb-1',
             menuAlign.x === 'left' ? 'left-0' : 'right-0',
           )}
         >
-          <div className="border-b border-wl-surface px-2 pb-2 pt-2">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-wl-ink-muted" />
-              <input
-                ref={searchRef}
-                type="search"
-                autoComplete="off"
-                placeholder="Search name, domain, industry…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full rounded-lg border border-wl-surface bg-wl-page py-2 pl-8 pr-3 text-xs text-wl-ink outline-none ring-wl-teal/30 placeholder:text-wl-ink-muted/70 focus:ring-2"
-              />
-            </label>
-          </div>
+          <SearchField
+            query={query}
+            onQuery={setQuery}
+            inputRef={searchRef}
+          />
           <div className="flex gap-3 border-b border-wl-surface px-3 py-2">
             <button
               type="button"
@@ -422,9 +490,9 @@ function ClientPickerMulti({
               Clear selection
             </button>
           </div>
-          <div className="max-h-64 space-y-0.5 overflow-y-auto py-2">
+          <div className="max-h-64 space-y-0.5 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <p className="px-3 py-5 text-center text-xs text-wl-ink-muted">
+              <p className="px-3 py-6 text-center text-sm text-wl-ink-muted">
                 No clients match your search.
               </p>
             ) : (
@@ -434,11 +502,14 @@ function ClientPickerMulti({
                 return (
                   <label
                     key={c.id}
-                    className="flex cursor-pointer items-start gap-2 px-3 py-2 text-xs hover:bg-wl-teal-soft"
+                    className={cn(
+                      'flex w-full cursor-pointer items-start gap-2.5 px-3 py-2.5 transition',
+                      checked ? 'bg-wl-teal-soft/60' : 'hover:bg-wl-page',
+                    )}
                   >
                     <input
                       type="checkbox"
-                      className="mt-1 rounded border-wl-surface text-wl-teal"
+                      className="mt-1.5 shrink-0 rounded border-wl-surface text-wl-teal"
                       checked={checked}
                       onChange={() => {
                         if (selected === null) {
@@ -454,30 +525,11 @@ function ClientPickerMulti({
                         }
                       }}
                     />
-                    <span className="flex min-w-0 flex-1 gap-2">
-                      <span
-                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wl-page text-[10px] font-bold text-wl-ink-muted"
-                        aria-hidden
-                      >
-                        {clientInitials(c.name)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={cn(
-                            'block font-semibold text-wl-ink',
-                            !checked && 'text-wl-ink-muted',
-                          )}
-                        >
-                          {c.name}
-                        </span>
-                        <span className="block truncate text-[10px] text-wl-ink-muted">
-                          {c.domain}
-                        </span>
-                        <span className="mt-0.5 inline-block rounded bg-wl-page px-1 py-px text-[9px] font-medium uppercase tracking-wide text-wl-ink-muted">
-                          {c.segment}
-                        </span>
-                      </span>
-                    </span>
+                    <ClientRowAvatar
+                      label={clientInitials(c.name)}
+                      active={checked}
+                    />
+                    <ClientRowBody client={c} dimmed={!checked} />
                   </label>
                 )
               })
