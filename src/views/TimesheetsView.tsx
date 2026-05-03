@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -30,8 +31,8 @@ import { WrappedAxisTick } from '../components/WrappedAxisTick'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
 import {
   CHART_GRID,
-  CHART_PRIMARY,
   CHART_TICK,
+  CHART_TICK_SM,
   TASK_COLORS,
   TOOLTIP_STYLE,
 } from '../constants/chart'
@@ -303,7 +304,7 @@ export default function TimesheetsView({
 
       {tsSub === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-3">
-          <Card title="Total hours (filtered)">
+          <Card title="Total hours">
             <p className="text-3xl font-bold text-wl-ink">
               {fmtFixed(
                 Math.round(
@@ -330,31 +331,79 @@ export default function TimesheetsView({
             </p>
           </Card>
           <Card title="Hours by client" className="lg:col-span-3">
-            <div className="h-80">
+            <div
+              className="min-h-80 w-full"
+              style={{
+                height: Math.max(320, 40 + byClient.length * 40),
+              }}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
+                  layout="vertical"
                   data={byClient}
-                  margin={{ left: 8, right: 8, bottom: 8 }}
+                  margin={{ left: 4, right: 28, top: 8, bottom: 8 }}
+                  barCategoryGap="22%"
+                  maxBarSize={34}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <defs>
+                    <linearGradient
+                      id="timesheetOverviewHoursBar"
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="0"
+                    >
+                      <stop offset="0%" stopColor="#0891b2" stopOpacity={0.55} />
+                      <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.92} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 6"
+                    stroke={CHART_GRID}
+                    strokeOpacity={0.85}
+                    horizontal={false}
+                  />
                   <XAxis
-                    dataKey="name"
-                    tick={<WrappedAxisTick fontSize={11} />}
-                    interval={0}
-                    height={56}
-                    tickMargin={6}
+                    type="number"
+                    tick={CHART_TICK}
+                    tickFormatter={(v) => fmtFixed(Number(v), 0)}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <YAxis
-                    tick={CHART_TICK}
-                    tickFormatter={(v) => fmtFixed(Number(v), 1)}
+                    type="category"
+                    dataKey="name"
+                    width={158}
+                    tick={CHART_TICK_SM}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
-                    formatter={(value) =>
-                      fmtFixed(Number(value), 1)
-                    }
+                    formatter={(value) => fmtFixed(Number(value), 1)}
+                    labelFormatter={(name) => String(name)}
                   />
-                  <Bar dataKey="hours" fill={CHART_PRIMARY} radius={[6, 6, 0, 0]} />
+                  <Bar
+                    dataKey="hours"
+                    fill="url(#timesheetOverviewHoursBar)"
+                    radius={[0, 10, 10, 0]}
+                  >
+                    <LabelList
+                      dataKey="hours"
+                      position="right"
+                      offset={10}
+                      formatter={(v) =>
+                        v == null || v === ''
+                          ? ''
+                          : fmtFixed(Number(v), 1)
+                      }
+                      style={{
+                        fill: '#64748b',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
