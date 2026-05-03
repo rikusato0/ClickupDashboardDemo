@@ -41,6 +41,9 @@ import { downloadCsv } from '../utils/csv'
 import { fmtExportCell, fmtFixed, fmtInt } from '../utils/format'
 import { useTimesheetsData } from '../hooks/useTimesheetsData'
 
+/** Fixed-height scroll region for timesheet tables (matches Task types × client table). */
+const TIMESHEET_TABLE_SCROLL_CLASS = 'h-80 overflow-auto'
+
 export type TimesheetsState = {
   filterStaff: string[] | null
   setFilterStaff: (next: string[] | null) => void
@@ -54,8 +57,6 @@ export type TimesheetsState = {
   setTsSub: (
     next: 'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export',
   ) => void
-  exportStaffIds: string[] | null
-  setExportStaffIds: (next: string[] | null) => void
   timesheetPeriodFrom: string
   timesheetPeriodTo: string
   setTimesheetPeriod: (from: string, to: string) => void
@@ -83,8 +84,6 @@ export default function TimesheetsView({
     setOpenFilterId,
     tsSub,
     setTsSub,
-    exportStaffIds,
-    setExportStaffIds,
     timesheetPeriodFrom,
     timesheetPeriodTo,
     setTimesheetPeriod,
@@ -133,7 +132,6 @@ export default function TimesheetsView({
       filterStaff,
       filterClients,
       filterTaskTypes,
-      exportStaffIds,
     })
 
   const byClientTableRows = useMemo(() => {
@@ -332,80 +330,70 @@ export default function TimesheetsView({
           </Card>
           <Card title="Hours by client" className="lg:col-span-3">
             <div
-              className="min-h-80 w-full"
-              style={{
-                height: Math.max(320, 40 + byClient.length * 40),
-              }}
+              className="h-80 w-full overflow-y-auto rounded-lg border border-wl-surface/70 bg-gradient-to-b from-wl-card to-wl-page/50"
             >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  layout="vertical"
-                  data={byClient}
-                  margin={{ left: 4, right: 28, top: 8, bottom: 8 }}
-                  barCategoryGap="22%"
-                  maxBarSize={34}
-                >
-                  <defs>
-                    <linearGradient
-                      id="timesheetOverviewHoursBar"
-                      x1="0"
-                      y1="0"
-                      x2="1"
-                      y2="0"
-                    >
-                      <stop offset="0%" stopColor="#0891b2" stopOpacity={0.55} />
-                      <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.92} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 6"
-                    stroke={CHART_GRID}
-                    strokeOpacity={0.85}
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    tick={CHART_TICK}
-                    tickFormatter={(v) => fmtFixed(Number(v), 0)}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={158}
-                    tick={CHART_TICK_SM}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(value) => fmtFixed(Number(value), 1)}
-                    labelFormatter={(name) => String(name)}
-                  />
-                  <Bar
-                    dataKey="hours"
-                    fill="url(#timesheetOverviewHoursBar)"
-                    radius={[0, 10, 10, 0]}
+              <div
+                className="w-full min-h-full px-2 py-2 sm:px-3"
+                style={{
+                  height: Math.max(280, 28 + byClient.length * 40),
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={byClient}
+                    margin={{ left: 2, right: 40, top: 4, bottom: 4 }}
+                    barCategoryGap="28%"
+                    maxBarSize={26}
                   >
-                    <LabelList
-                      dataKey="hours"
-                      position="right"
-                      offset={10}
-                      formatter={(v) =>
-                        v == null || v === ''
-                          ? ''
-                          : fmtFixed(Number(v), 1)
-                      }
-                      style={{
-                        fill: '#64748b',
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
+                    <XAxis
+                      type="number"
+                      tick={CHART_TICK}
+                      tickFormatter={(v) => fmtFixed(Number(v), 0)}
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={4}
                     />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={150}
+                      tick={CHART_TICK_SM}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      formatter={(value) => fmtFixed(Number(value), 1)}
+                      labelFormatter={(name) => String(name)}
+                      cursor={{ fill: 'rgba(14, 116, 144, 0.06)' }}
+                    />
+                    <Bar
+                      dataKey="hours"
+                      fill="#0e7490"
+                      fillOpacity={0.88}
+                      radius={[0, 5, 5, 0]}
+                    >
+                      <LabelList
+                        dataKey="hours"
+                        position="right"
+                        offset={8}
+                        formatter={(v) =>
+                          v == null || v === ''
+                            ? ''
+                            : fmtFixed(Number(v), 1)
+                        }
+                        style={{
+                          fill: '#475569',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </Card>
         </div>
@@ -413,7 +401,7 @@ export default function TimesheetsView({
 
       {tsSub === 'by_client' && (
         <Card title="Hours by client">
-          <div className="rounded-xl border border-wl-surface">
+          <div className={TIMESHEET_TABLE_SCROLL_CLASS}>
             <table className="w-full table-fixed bg-wl-card text-left text-sm">
               <colgroup>
                 <col className="w-[42%]" />
@@ -422,7 +410,7 @@ export default function TimesheetsView({
               </colgroup>
               <thead
                 ref={byClientTableHeadRef}
-                className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted"
+                className="sticky top-0 z-20 border-b border-wl-surface bg-wl-card text-xs font-semibold uppercase tracking-wide text-wl-ink-muted"
               >
                 <tr>
                   <th className="relative px-0 py-3 pr-4 align-middle">
@@ -497,7 +485,7 @@ export default function TimesheetsView({
                     </div>
                     {byClientPopoverOpen === 'hours' && (
                       <div
-                        className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10 sm:left-0"
+                        className="absolute left-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
                         role="dialog"
                         aria-label="Filter by minimum hours"
                       >
@@ -544,7 +532,7 @@ export default function TimesheetsView({
                     </div>
                     {byClientPopoverOpen === 'allocation' && (
                       <div
-                        className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        className="absolute left-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
                         role="dialog"
                         aria-label="Filter by minimum allocation"
                       >
@@ -567,57 +555,48 @@ export default function TimesheetsView({
                   </th>
                 </tr>
               </thead>
-            </table>
-            <div className="max-h-[min(28rem,55vh)] overflow-x-auto overflow-y-auto bg-wl-card">
-              <table className="w-full table-fixed text-left text-sm">
-                <colgroup>
-                  <col className="w-[42%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[38%]" />
-                </colgroup>
-                <tbody>
-                  {byClientTableRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="py-8 text-center text-sm text-wl-ink-muted"
-                      >
-                        No rows match these filters.
+              <tbody>
+                {byClientTableRows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="py-8 text-center text-sm text-wl-ink-muted"
+                    >
+                      No rows match these filters.
+                    </td>
+                  </tr>
+                ) : (
+                  byClientTableRows.map((r) => (
+                    <tr
+                      key={r.name}
+                      className="border-b border-wl-surface text-wl-ink last:border-b-0"
+                    >
+                      <td className="py-2 pr-4 font-medium text-wl-ink">
+                        {r.name}
+                      </td>
+                      <td className="py-2 pr-4 tabular-nums">
+                        {fmtFixed(r.hours, 1)}
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
+                            <div
+                              className="h-full rounded-full bg-wl-teal"
+                              style={{
+                                width: `${Math.min(100, r.allocation)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="w-10 shrink-0 text-right text-xs text-wl-ink-muted">
+                            {fmtFixed(r.allocation, 1)}%
+                          </span>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    byClientTableRows.map((r) => (
-                      <tr
-                        key={r.name}
-                        className="border-t border-wl-surface text-wl-ink"
-                      >
-                        <td className="py-2 pr-4 font-medium text-wl-ink">
-                          {r.name}
-                        </td>
-                        <td className="py-2 pr-4 tabular-nums">
-                          {fmtFixed(r.hours, 1)}
-                        </td>
-                        <td className="py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
-                              <div
-                                className="h-full rounded-full bg-wl-teal"
-                                style={{
-                                  width: `${Math.min(100, r.allocation)}%`,
-                                }}
-                              />
-                            </div>
-                            <span className="w-10 shrink-0 text-right text-xs text-wl-ink-muted">
-                              {fmtFixed(r.allocation, 1)}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}
@@ -668,7 +647,7 @@ export default function TimesheetsView({
             </div>
           </Card>
           <Card title="Table — full detail">
-            <div className="max-h-80 overflow-auto text-xs">
+            <div className={`${TIMESHEET_TABLE_SCROLL_CLASS} text-xs`}>
               <table className="w-full text-left">
                 <thead className="sticky top-0 bg-wl-page">
                   <tr className="text-wl-ink-muted">
@@ -709,7 +688,7 @@ export default function TimesheetsView({
 
       {tsSub === 'by_staff' && (
         <Card title="Staff summary">
-          <div className="overflow-x-auto">
+          <div className={TIMESHEET_TABLE_SCROLL_CLASS}>
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
@@ -757,7 +736,7 @@ export default function TimesheetsView({
       {tsSub === 'export' && (
         <Card
           title="Daily export"
-          subtitle="Per-staff weekday hours and period total. Pick one or more staff, then export."
+          subtitle="Per-staff weekday hours and period total. Use the Staff filter in the toolbar to limit who appears here, then export."
           action={
             <button
               type="button"
@@ -788,30 +767,14 @@ export default function TimesheetsView({
             </button>
           }
         >
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-              Staff
-            </span>
-            <FilterMultiSelect
-              menuId="export-staff"
-              isOpen={openFilterId === 'export-staff'}
-              onOpenChange={(open) =>
-                setOpenFilterId(open ? 'export-staff' : null)
-              }
-              icon={Users}
-              label="Staff"
-              searchPlaceholder="Search staff…"
-              options={staff.map((s) => ({ id: s.id, label: s.name }))}
-              selected={exportStaffIds}
-              onChange={setExportStaffIds}
-            />
-            <span className="text-[11px] text-wl-ink-muted">
-              {exportData.rows.length === 0
-                ? 'No staff selected'
-                : `${fmtInt(exportData.rows.length)} of ${fmtInt(staff.length)} shown`}
-            </span>
-          </div>
-          <div className="overflow-x-auto">
+          <p className="mb-3 text-[11px] text-wl-ink-muted">
+            {exportData.rows.length === 0
+              ? filterStaff !== null && filterStaff.length === 0
+                ? 'Staff filter is set to none. Choose one or more people in the toolbar above.'
+                : 'Select at least one staff member to see daily hours.'
+              : `${fmtInt(exportData.rows.length)} staff in export${filterStaff === null ? ' (all)' : ''}`}
+          </p>
+          <div className={`${TIMESHEET_TABLE_SCROLL_CLASS} overflow-x-auto`}>
             <table className="min-w-full border-collapse text-xs">
               <thead>
                 <tr>

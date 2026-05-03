@@ -63,8 +63,6 @@ export default function App() {
   const [tsSub, setTsSub] = useState<
     'overview' | 'by_client' | 'by_type' | 'by_staff' | 'export'
   >('overview')
-  const [exportStaffIds, setExportStaffIds] = useState<string[] | null>(null)
-
   const [timesheetPeriodFrom, setTimesheetPeriodFrom] =
     useState(BASELINE_FROM)
   const [timesheetPeriodTo, setTimesheetPeriodTo] = useState(BASELINE_TO)
@@ -176,8 +174,6 @@ export default function App() {
     setOpenFilterId,
     tsSub,
     setTsSub,
-    exportStaffIds,
-    setExportStaffIds,
     timesheetPeriodFrom,
     timesheetPeriodTo,
     setTimesheetPeriod: (from, to) => {

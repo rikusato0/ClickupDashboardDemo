@@ -1,9 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { fmtInt } from '../utils/format'
 
 function cn(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(' ')
+}
+
+type MenuAlign = { x: 'left' | 'right'; y: 'below' | 'above' }
+
+const MARGIN = 12
+const MENU_MIN_W = 240
+/** Search + actions + max list body (max-h-56) */
+const MENU_EST_H = 300
+
+function computeMenuAlign(trigger: DOMRect): MenuAlign {
+  let x: MenuAlign['x'] = 'left'
+  if (trigger.left + MENU_MIN_W > window.innerWidth - MARGIN) {
+    x = 'right'
+  }
+  let y: MenuAlign['y'] = 'below'
+  if (
+    trigger.bottom + MENU_EST_H > window.innerHeight - MARGIN &&
+    trigger.top > MENU_EST_H + MARGIN
+  ) {
+    y = 'above'
+  }
+  return { x, y }
 }
 
 type Props<T extends string> = {
@@ -35,6 +63,10 @@ export function FilterMultiSelect<T extends string>({
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
+  const [menuAlign, setMenuAlign] = useState<MenuAlign>({
+    x: 'left',
+    y: 'below',
+  })
 
   useEffect(() => {
     if (!isOpen) return
@@ -60,6 +92,24 @@ export function FilterMultiSelect<T extends string>({
     if (!q) return options
     return options.filter((o) => o.label.toLowerCase().includes(q))
   }, [options, query])
+
+  useLayoutEffect(() => {
+    if (!isOpen || !rootRef.current) return
+
+    const update = () => {
+      const el = rootRef.current
+      if (!el) return
+      setMenuAlign(computeMenuAlign(el.getBoundingClientRect()))
+    }
+
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [isOpen, query, options.length])
 
   const summary =
     selected === null
@@ -100,7 +150,13 @@ export function FilterMultiSelect<T extends string>({
         <span className="max-w-[140px] truncate font-medium text-wl-ink">{summary}</span>
       </button>
       {isOpen && (
-        <div className="absolute left-0 top-full z-30 mt-1 min-w-[240px] max-w-[min(100vw-2rem,20rem)] rounded-xl border border-wl-surface bg-wl-card p-2 shadow-xl shadow-slate-900/10">
+        <div
+          className={cn(
+            'absolute z-30 min-w-[240px] max-w-[min(100vw-2rem,20rem)] rounded-xl border border-wl-surface bg-wl-card p-2 shadow-xl shadow-slate-900/10',
+            menuAlign.y === 'below' ? 'top-full mt-1' : 'bottom-full mb-1',
+            menuAlign.x === 'left' ? 'left-0' : 'right-0',
+          )}
+        >
           <input
             ref={searchRef}
             type="search"

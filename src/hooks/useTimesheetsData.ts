@@ -15,7 +15,6 @@ export function useTimesheetsData(opts: {
   filterStaff: string[] | null
   filterClients: string[] | null
   filterTaskTypes: TaskType[] | null
-  exportStaffIds: string[] | null
 }) {
   const {
     dateFrom,
@@ -23,7 +22,6 @@ export function useTimesheetsData(opts: {
     filterStaff,
     filterClients,
     filterTaskTypes,
-    exportStaffIds,
   } = opts
 
   const filterOpts = useMemo(
@@ -91,7 +89,7 @@ export function useTimesheetsData(opts: {
     const labels = days.map((d) => format(d, 'EEE M/d'))
     const keys = days.map((d) => format(d, 'yyyy-MM-dd'))
     const targetIds =
-      exportStaffIds === null ? staff.map((s) => s.id) : exportStaffIds
+      filterStaff === null ? staff.map((s) => s.id) : filterStaff
     const rows = targetIds
       .map((sid) => {
         const s = staff.find((x) => x.id === sid)
@@ -126,7 +124,7 @@ export function useTimesheetsData(opts: {
     })
     totalsRow.total = Math.round(grand * 100) / 100
     return { labels, keys, rows, totalsRow }
-  }, [filtered, dateFrom, dateTo, exportStaffIds])
+  }, [filtered, dateFrom, dateTo, filterStaff])
 
   return { filtered, byClient, byClientType, byStaff, exportData }
 }
