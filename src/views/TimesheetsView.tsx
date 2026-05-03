@@ -16,7 +16,6 @@ import {
   Building2,
   Clock,
   Download,
-  ListFilter,
   Users,
 } from 'lucide-react'
 import {
@@ -228,6 +227,7 @@ export default function TimesheetsView({
             onChange={setTimesheetPeriod}
             baselineFrom={timesheetPeriodBaselineFrom}
             baselineTo={timesheetPeriodBaselineTo}
+            compact
             className="w-full min-w-0 sm:w-auto"
           />
           <FilterMultiSelect
@@ -242,6 +242,7 @@ export default function TimesheetsView({
             options={staff.map((s) => ({ id: s.id, label: s.name }))}
             selected={filterStaff}
             onChange={setFilterStaff}
+            buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
           <FilterMultiSelect
             menuId="clients"
@@ -255,6 +256,7 @@ export default function TimesheetsView({
             options={clients.map((c) => ({ id: c.id, label: c.name }))}
             selected={filterClients}
             onChange={setFilterClients}
+            buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
           <FilterMultiSelect
             menuId="taskType"
@@ -268,6 +270,7 @@ export default function TimesheetsView({
             options={TASK_TYPES.map((t) => ({ id: t, label: t }))}
             selected={filterTaskTypes}
             onChange={setFilterTaskTypes}
+            buttonClassName="h-10 min-h-10 shrink-0 py-0 text-sm"
           />
         </div>
       </div>
@@ -361,33 +364,37 @@ export default function TimesheetsView({
 
       {tsSub === 'by_client' && (
         <Card title="Hours by client">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead ref={byClientTableHeadRef}>
-                <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                  <th className="relative max-w-[14rem] pb-3 pr-4 align-middle">
-                    <div className="flex items-center justify-between gap-2">
+          <div className="rounded-xl border border-wl-surface">
+            <table className="w-full table-fixed bg-wl-card text-left text-sm">
+              <colgroup>
+                <col className="w-[42%]" />
+                <col className="w-[20%]" />
+                <col className="w-[38%]" />
+              </colgroup>
+              <thead
+                ref={byClientTableHeadRef}
+                className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted"
+              >
+                <tr>
+                  <th className="relative px-0 py-3 pr-4 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
                       <button
                         type="button"
                         onClick={() => toggleByClientPopover('client')}
                         className={cn(
-                          'flex min-w-0 flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
                           byClientPopoverOpen === 'client' ||
                             byClientNameFilter.trim() !== ''
                             ? 'text-wl-teal'
                             : 'text-wl-ink-muted hover:text-wl-ink',
                         )}
                       >
-                        <span className="truncate">Client</span>
-                        <ListFilter
-                          className="h-3.5 w-3.5 shrink-0 opacity-70"
-                          aria-hidden
-                        />
+                        Client
                       </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('client')}
-                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by client name"
                       >
                         <SortAffordance col="client" />
@@ -415,13 +422,13 @@ export default function TimesheetsView({
                       </div>
                     )}
                   </th>
-                  <th className="relative w-36 pb-3 pr-4 align-middle">
-                    <div className="flex items-center justify-between gap-2">
+                  <th className="relative px-0 py-3 pr-4 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
                       <button
                         type="button"
                         onClick={() => toggleByClientPopover('hours')}
                         className={cn(
-                          'flex flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
                           byClientPopoverOpen === 'hours' ||
                             byClientHoursMin.trim() !== ''
                             ? 'text-wl-teal'
@@ -429,15 +436,11 @@ export default function TimesheetsView({
                         )}
                       >
                         Hours
-                        <ListFilter
-                          className="h-3.5 w-3.5 shrink-0 opacity-70"
-                          aria-hidden
-                        />
                       </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('hours')}
-                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by hours"
                       >
                         <SortAffordance col="hours" />
@@ -466,13 +469,13 @@ export default function TimesheetsView({
                       </div>
                     )}
                   </th>
-                  <th className="relative min-w-[10rem] pb-3 align-middle">
-                    <div className="flex items-center justify-between gap-2">
+                  <th className="relative px-0 py-3 align-middle">
+                    <div className="inline-flex items-center gap-0.5">
                       <button
                         type="button"
                         onClick={() => toggleByClientPopover('allocation')}
                         className={cn(
-                          'flex flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          'rounded px-0.5 py-0.5 text-left font-semibold tracking-wide transition',
                           byClientPopoverOpen === 'allocation' ||
                             byClientAllocMin.trim() !== ''
                             ? 'text-wl-teal'
@@ -480,15 +483,11 @@ export default function TimesheetsView({
                         )}
                       >
                         Allocation
-                        <ListFilter
-                          className="h-3.5 w-3.5 shrink-0 opacity-70"
-                          aria-hidden
-                        />
                       </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('allocation')}
-                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        className="-ml-0.5 shrink-0 rounded p-0.5 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
                         aria-label="Sort by allocation"
                       >
                         <SortAffordance col="allocation" />
@@ -519,48 +518,57 @@ export default function TimesheetsView({
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {byClientTableRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-8 text-center text-sm text-wl-ink-muted"
-                    >
-                      No rows match these filters.
-                    </td>
-                  </tr>
-                ) : (
-                  byClientTableRows.map((r) => (
-                    <tr
-                      key={r.name}
-                      className="border-b border-wl-surface text-wl-ink"
-                    >
-                      <td className="py-2 pr-4 font-medium text-wl-ink">
-                        {r.name}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums">
-                        {fmtFixed(r.hours, 1)}
-                      </td>
-                      <td className="py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
-                            <div
-                              className="h-full rounded-full bg-wl-teal"
-                              style={{
-                                width: `${Math.min(100, r.allocation)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="w-10 shrink-0 text-right text-xs text-wl-ink-muted">
-                            {fmtFixed(r.allocation, 1)}%
-                          </span>
-                        </div>
+            </table>
+            <div className="max-h-[min(28rem,55vh)] overflow-x-auto overflow-y-auto bg-wl-card">
+              <table className="w-full table-fixed text-left text-sm">
+                <colgroup>
+                  <col className="w-[42%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[38%]" />
+                </colgroup>
+                <tbody>
+                  {byClientTableRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="py-8 text-center text-sm text-wl-ink-muted"
+                      >
+                        No rows match these filters.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    byClientTableRows.map((r) => (
+                      <tr
+                        key={r.name}
+                        className="border-t border-wl-surface text-wl-ink"
+                      >
+                        <td className="py-2 pr-4 font-medium text-wl-ink">
+                          {r.name}
+                        </td>
+                        <td className="py-2 pr-4 tabular-nums">
+                          {fmtFixed(r.hours, 1)}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-wl-surface">
+                              <div
+                                className="h-full rounded-full bg-wl-teal"
+                                style={{
+                                  width: `${Math.min(100, r.allocation)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="w-10 shrink-0 text-right text-xs text-wl-ink-muted">
+                              {fmtFixed(r.allocation, 1)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </Card>
       )}

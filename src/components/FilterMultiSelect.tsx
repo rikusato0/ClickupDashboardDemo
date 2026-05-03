@@ -16,6 +16,8 @@ type Props<T extends string> = {
   selected: T[] | null
   onChange: (v: T[] | null) => void
   searchPlaceholder?: string
+  /** Merged onto the trigger button (e.g. fixed height for toolbar rows) */
+  buttonClassName?: string
 }
 
 export function FilterMultiSelect<T extends string>({
@@ -28,6 +30,7 @@ export function FilterMultiSelect<T extends string>({
   selected,
   onChange,
   searchPlaceholder = 'Filter list…',
+  buttonClassName,
 }: Props<T>) {
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -85,7 +88,10 @@ export function FilterMultiSelect<T extends string>({
             onOpenChange(true)
           }
         }}
-        className="flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-left text-xs text-wl-ink shadow-sm transition hover:border-wl-teal/40"
+        className={cn(
+          'flex items-center gap-2 rounded-lg border border-wl-surface bg-wl-card px-3 py-2 text-left text-xs text-wl-ink shadow-sm transition hover:border-wl-teal/40',
+          buttonClassName,
+        )}
       >
         <Icon className="h-3.5 w-3.5 text-wl-ink-muted" />
         <span className="font-semibold uppercase tracking-wide text-wl-ink-muted">

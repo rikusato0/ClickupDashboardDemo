@@ -34,6 +34,8 @@ type Props = {
   baselineFrom: string
   baselineTo: string
   className?: string
+  /** Single-line trigger aligned with toolbar filter height */
+  compact?: boolean
 }
 
 type RangeField = 'from' | 'to'
@@ -45,6 +47,7 @@ export function DateRangePicker({
   baselineFrom,
   baselineTo,
   className,
+  compact = false,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
@@ -145,26 +148,45 @@ export function DateRangePicker({
           setOpen(!open)
         }}
         className={cn(
-          'flex w-full max-w-md min-w-0 items-center gap-2 rounded-xl border border-wl-surface bg-wl-card py-2.5 pl-3 pr-2 text-left shadow-sm transition',
+          'flex w-full max-w-md min-w-0 items-center gap-2 rounded-lg border border-wl-surface bg-wl-card text-left shadow-sm transition',
           'hover:border-wl-teal/35 focus:outline-none focus:ring-2 focus:ring-wl-teal/25 lg:max-w-none',
           open && 'border-wl-teal/50 ring-2 ring-wl-teal/20',
+          compact
+            ? 'h-10 min-h-10 shrink-0 py-0 pl-2.5 pr-2'
+            : 'rounded-xl py-2.5 pl-3 pr-2',
         )}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-wl-teal-soft text-wl-teal">
-          <CalendarRange className="h-4 w-4" aria-hidden />
+        <span
+          className={cn(
+            'flex shrink-0 items-center justify-center rounded-lg bg-wl-teal-soft text-wl-teal',
+            compact ? 'h-7 w-7' : 'h-9 w-9',
+          )}
+        >
+          <CalendarRange
+            className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+            aria-hidden
+          />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[11px] text-wl-ink-muted">
-            Reporting period
-          </span>
-          <span className="mt-0.5 block truncate text-sm font-semibold tabular-nums text-wl-ink">
+        {compact ? (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold tabular-nums text-wl-ink">
             {format(fromD, 'MM/dd/yyyy')}
-            <span className="text-wl-ink-muted font-medium"> – </span>
+            <span className="font-medium text-wl-ink-muted"> – </span>
             {format(toD, 'MM/dd/yyyy')}
           </span>
-        </span>
+        ) : (
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] text-wl-ink-muted">
+              Reporting period
+            </span>
+            <span className="mt-0.5 block truncate text-sm font-semibold tabular-nums text-wl-ink">
+              {format(fromD, 'MM/dd/yyyy')}
+              <span className="font-medium text-wl-ink-muted"> – </span>
+              {format(toD, 'MM/dd/yyyy')}
+            </span>
+          </span>
+        )}
         <ChevronDown
           className={cn(
             'h-4 w-4 shrink-0 text-wl-ink-muted transition',
