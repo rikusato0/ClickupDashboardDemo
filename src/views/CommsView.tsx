@@ -84,15 +84,6 @@ export default function CommsView({ state }: { state: CommsState }) {
           ))}
         </div>
         <div className="flex w-full min-w-0 flex-col flex-wrap gap-2 sm:w-auto sm:max-w-none sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-          <DateRangePicker
-            from={commsPeriodFrom}
-            to={commsPeriodTo}
-            onChange={setCommsPeriod}
-            baselineFrom={commsPeriodBaselineFrom}
-            baselineTo={commsPeriodBaselineTo}
-            compact
-            className="w-full min-w-0 sm:w-auto"
-          />
           {commsSub === 'response' && (
             <button
               type="button"
@@ -103,6 +94,15 @@ export default function CommsView({ state }: { state: CommsState }) {
               Alert settings
             </button>
           )}
+          <DateRangePicker
+            from={commsPeriodFrom}
+            to={commsPeriodTo}
+            onChange={setCommsPeriod}
+            baselineFrom={commsPeriodBaselineFrom}
+            baselineTo={commsPeriodBaselineTo}
+            compact
+            className="w-full min-w-0 sm:w-auto"
+          />
           <FilterMultiSelect
             menuId="comms-staff"
             isOpen={commsOpenFilterId === 'staff'}
