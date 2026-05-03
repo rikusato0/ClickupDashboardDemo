@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -16,6 +16,7 @@ import {
   Building2,
   Clock,
   Download,
+  ListFilter,
   Users,
 } from 'lucide-react'
 import {
@@ -98,6 +99,32 @@ export default function TimesheetsView({
     'client' | 'hours' | 'allocation'
   >('hours')
   const [byClientSortDir, setByClientSortDir] = useState<'asc' | 'desc'>('desc')
+  const [byClientPopoverOpen, setByClientPopoverOpen] = useState<
+    null | 'client' | 'hours' | 'allocation'
+  >(null)
+  const byClientTableHeadRef = useRef<HTMLTableSectionElement>(null)
+
+  useEffect(() => {
+    if (tsSub !== 'by_client') setByClientPopoverOpen(null)
+  }, [tsSub])
+
+  useEffect(() => {
+    if (byClientPopoverOpen === null) return
+    const onDoc = (e: MouseEvent) => {
+      if (!byClientTableHeadRef.current?.contains(e.target as Node)) {
+        setByClientPopoverOpen(null)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setByClientPopoverOpen(null)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [byClientPopoverOpen])
 
   const { filtered, byClient, byClientType, byStaff, exportData } =
     useTimesheetsData({
@@ -155,6 +182,12 @@ export default function TimesheetsView({
     byClientSort,
     byClientSortDir,
   ])
+
+  const toggleByClientPopover = (
+    col: 'client' | 'hours' | 'allocation',
+  ) => {
+    setByClientPopoverOpen((v) => (v === col ? null : col))
+  }
 
   const cycleByClientSort = (
     col: 'client' | 'hours' | 'allocation',
@@ -330,66 +363,159 @@ export default function TimesheetsView({
         <Card title="Hours by client">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead>
+              <thead ref={byClientTableHeadRef}>
                 <tr className="border-b border-wl-surface text-xs font-semibold uppercase tracking-wide text-wl-ink-muted">
-                  <th className="max-w-[14rem] pb-3 pr-4 align-bottom">
-                    <div className="flex flex-col gap-2">
+                  <th className="relative max-w-[14rem] pb-3 pr-4 align-middle">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleByClientPopover('client')}
+                        className={cn(
+                          'flex min-w-0 flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          byClientPopoverOpen === 'client' ||
+                            byClientNameFilter.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        <span className="truncate">Client</span>
+                        <ListFilter
+                          className="h-3.5 w-3.5 shrink-0 opacity-70"
+                          aria-hidden
+                        />
+                      </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('client')}
-                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by client name"
                       >
-                        Client
                         <SortAffordance col="client" />
                       </button>
-                      <input
-                        type="search"
-                        value={byClientNameFilter}
-                        onChange={(e) => setByClientNameFilter(e.target.value)}
-                        placeholder="Contains…"
-                        className="w-full rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
-                      />
                     </div>
+                    {byClientPopoverOpen === 'client' && (
+                      <div
+                        className="absolute left-0 top-full z-30 mt-1.5 min-w-[13rem] max-w-[min(100vw-2rem,16rem)] rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Filter by client name"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Name contains
+                        </label>
+                        <input
+                          type="search"
+                          value={byClientNameFilter}
+                          onChange={(e) =>
+                            setByClientNameFilter(e.target.value)
+                          }
+                          placeholder="Contains…"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
                   </th>
-                  <th className="w-32 pb-3 pr-4 align-bottom">
-                    <div className="flex flex-col gap-2">
+                  <th className="relative w-36 pb-3 pr-4 align-middle">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleByClientPopover('hours')}
+                        className={cn(
+                          'flex flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          byClientPopoverOpen === 'hours' ||
+                            byClientHoursMin.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Hours
+                        <ListFilter
+                          className="h-3.5 w-3.5 shrink-0 opacity-70"
+                          aria-hidden
+                        />
+                      </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('hours')}
-                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by hours"
                       >
-                        Hours
                         <SortAffordance col="hours" />
                       </button>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={byClientHoursMin}
-                        onChange={(e) => setByClientHoursMin(e.target.value)}
-                        placeholder="Min hours"
-                        className="w-full rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
-                      />
                     </div>
+                    {byClientPopoverOpen === 'hours' && (
+                      <div
+                        className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10 sm:left-0"
+                        role="dialog"
+                        aria-label="Filter by minimum hours"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Minimum hours
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={byClientHoursMin}
+                          onChange={(e) =>
+                            setByClientHoursMin(e.target.value)
+                          }
+                          placeholder="Min hours"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
                   </th>
-                  <th className="min-w-[10rem] pb-3 align-bottom">
-                    <div className="flex flex-col gap-2">
+                  <th className="relative min-w-[10rem] pb-3 align-middle">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleByClientPopover('allocation')}
+                        className={cn(
+                          'flex flex-1 items-center gap-1.5 text-left font-semibold tracking-wide transition',
+                          byClientPopoverOpen === 'allocation' ||
+                            byClientAllocMin.trim() !== ''
+                            ? 'text-wl-teal'
+                            : 'text-wl-ink-muted hover:text-wl-ink',
+                        )}
+                      >
+                        Allocation
+                        <ListFilter
+                          className="h-3.5 w-3.5 shrink-0 opacity-70"
+                          aria-hidden
+                        />
+                      </button>
                       <button
                         type="button"
                         onClick={() => cycleByClientSort('allocation')}
-                        className="flex w-full items-center gap-1.5 text-left font-semibold tracking-wide text-wl-ink-muted transition hover:text-wl-ink"
+                        className="shrink-0 rounded-md p-1 text-wl-ink-muted transition hover:bg-wl-surface hover:text-wl-ink"
+                        aria-label="Sort by allocation"
                       >
-                        Allocation
                         <SortAffordance col="allocation" />
                       </button>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={byClientAllocMin}
-                        onChange={(e) => setByClientAllocMin(e.target.value)}
-                        placeholder="Min %"
-                        className="w-full max-w-[6.5rem] rounded-lg border border-wl-surface bg-wl-page px-2 py-1.5 text-[11px] font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-1 focus:ring-wl-teal/25"
-                      />
                     </div>
+                    {byClientPopoverOpen === 'allocation' && (
+                      <div
+                        className="absolute right-0 top-full z-30 mt-1.5 w-48 rounded-xl border border-wl-surface bg-wl-card p-3 shadow-lg shadow-slate-900/10"
+                        role="dialog"
+                        aria-label="Filter by minimum allocation"
+                      >
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-wl-ink-muted">
+                          Minimum allocation %
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={byClientAllocMin}
+                          onChange={(e) =>
+                            setByClientAllocMin(e.target.value)
+                          }
+                          placeholder="Min %"
+                          autoFocus
+                          className="w-full rounded-lg border border-wl-surface bg-wl-page px-2.5 py-2 text-sm font-normal normal-case tracking-normal tabular-nums text-wl-ink placeholder:text-wl-ink-muted focus:border-wl-teal/40 focus:outline-none focus:ring-2 focus:ring-wl-teal/20"
+                        />
+                      </div>
+                    )}
                   </th>
                 </tr>
               </thead>
