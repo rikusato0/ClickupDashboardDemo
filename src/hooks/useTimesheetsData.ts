@@ -1,12 +1,7 @@
 import { useMemo } from 'react'
 import { eachDayOfInterval, format, parseISO } from 'date-fns'
-import {
-  clients,
-  staff,
-  TASK_TYPES,
-  timeEntries,
-  type TaskType,
-} from '../data/mockDashboard'
+import { TASK_TYPES, type TaskType } from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { filterEntries } from '../utils/filterEntries'
 
 export function useTimesheetsData(opts: {
@@ -16,6 +11,11 @@ export function useTimesheetsData(opts: {
   filterClients: string[] | null
   filterTaskTypes: TaskType[] | null
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
+  const timeEntries = snapshot?.timeEntries ?? []
+
   const {
     dateFrom,
     dateTo,
@@ -37,7 +37,7 @@ export function useTimesheetsData(opts: {
 
   const filtered = useMemo(
     () => filterEntries(timeEntries, filterOpts),
-    [filterOpts],
+    [timeEntries, filterOpts],
   )
 
   const byClient = useMemo(() => {
@@ -46,10 +46,13 @@ export function useTimesheetsData(opts: {
       m.set(e.clientId, (m.get(e.clientId) ?? 0) + e.hours)
     }
     return clients
-      .map((c) => ({ name: c.name, hours: Math.round((m.get(c.id) ?? 0) * 10) / 10 }))
+      .map((c) => ({
+        name: c.name,
+        hours: Math.round((m.get(c.id) ?? 0) * 10) / 10,
+      }))
       .filter((r) => r.hours > 0)
       .sort((a, b) => b.hours - a.hours)
-  }, [filtered])
+  }, [filtered, clients])
 
   const byClientType = useMemo(() => {
     const rows: Record<string, string | number>[] = []
@@ -67,19 +70,20 @@ export function useTimesheetsData(opts: {
       if (sum > 0) rows.push(row)
     }
     return rows.sort((a, b) => (b.total as number) - (a.total as number))
-  }, [filtered])
+  }, [filtered, clients])
 
   const byStaff = useMemo(() => {
     return staff
       .map((s) => {
         const mine = filtered.filter((e) => e.staffId === s.id)
-        const hours = Math.round(mine.reduce((a, e) => a + e.hours, 0) * 10) / 10
+        const hours =
+          Math.round(mine.reduce((a, e) => a + e.hours, 0) * 10) / 10
         const entries = mine.length
         return { ...s, hours, entries }
       })
       .filter((r) => r.hours > 0)
       .sort((a, b) => b.hours - a.hours)
-  }, [filtered])
+  }, [filtered, staff])
 
   const exportData = useMemo(() => {
     const days = eachDayOfInterval({
@@ -94,7 +98,10 @@ export function useTimesheetsData(opts: {
       .map((sid) => {
         const s = staff.find((x) => x.id === sid)
         if (!s) return null
-        const cells: Record<string, string | number> = { id: s.id, name: s.name }
+        const cells: Record<string, string | number> = {
+          id: s.id,
+          name: s.name,
+        }
         let total = 0
         keys.forEach((k, i) => {
           const hrs =
@@ -109,9 +116,7 @@ export function useTimesheetsData(opts: {
         cells.total = Math.round(total * 100) / 100
         return cells
       })
-      .filter(
-        (r): r is Record<string, string | number> => r !== null,
-      )
+      .filter((r): r is Record<string, string | number> => r !== null)
     const totalsRow: Record<string, string | number> = { name: 'Daily total' }
     let grand = 0
     labels.forEach((l) => {
@@ -124,7 +129,7 @@ export function useTimesheetsData(opts: {
     })
     totalsRow.total = Math.round(grand * 100) / 100
     return { labels, keys, rows, totalsRow }
-  }, [filtered, dateFrom, dateTo, filterStaff])
+  }, [filtered, dateFrom, dateTo, filterStaff, staff])
 
   return { filtered, byClient, byClientType, byStaff, exportData }
 }

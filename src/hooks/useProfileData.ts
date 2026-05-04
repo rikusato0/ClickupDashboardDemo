@@ -6,15 +6,8 @@ import {
   parseISO,
   startOfMonth,
 } from 'date-fns'
-import {
-  COMMS_CATEGORIES,
-  clients,
-  monthlyPatternsByClient,
-  onboardingClients,
-  pairwiseSentiment,
-  predictedClientNeeds,
-  sentimentBiweekly,
-} from '../data/mockDashboard'
+import { COMMS_CATEGORIES } from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 
 function monthOverlapsRange(monthYm: string, fromStr: string, toStr: string) {
   const fromD = parseISO(fromStr)
@@ -29,6 +22,14 @@ export function useProfileData(
   periodFrom: string,
   periodTo: string,
 ) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const monthlyPatternsByClient = snapshot?.monthlyPatternsByClient ?? []
+  const sentimentBiweekly = snapshot?.sentimentBiweekly ?? []
+  const predictedClientNeeds = snapshot?.predictedClientNeeds ?? []
+  const onboardingClients = snapshot?.onboardingClients ?? []
+  const pairwiseSentiment = snapshot?.pairwiseSentiment ?? []
+
   return useMemo(() => {
     const client = clients.find((c) => c.id === profileClientId)
 
@@ -105,5 +106,15 @@ export function useProfileData(
       worstPairs,
       totalRecent,
     }
-  }, [profileClientId, periodFrom, periodTo])
+  }, [
+    profileClientId,
+    periodFrom,
+    periodTo,
+    clients,
+    monthlyPatternsByClient,
+    sentimentBiweekly,
+    predictedClientNeeds,
+    onboardingClients,
+    pairwiseSentiment,
+  ])
 }

@@ -1,13 +1,10 @@
 import { useMemo } from 'react'
 import {
-  clients,
   COMMS_CATEGORIES,
   type CommsCategory,
-  monthlyPatternsByClient,
-  patternSamples,
-  patternTrends,
-  predictedClientNeeds,
+  clients as clientsExport,
 } from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 
 export function useCommsPatternsData(opts: {
   commsFilterClients: string[] | null
@@ -15,6 +12,13 @@ export function useCommsPatternsData(opts: {
   commsPeriodTo: string
   patternDrillId: string | null
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? clientsExport
+  const patternTrends = snapshot?.patternTrends ?? []
+  const patternSamples = snapshot?.patternSamples ?? []
+  const predictedClientNeeds = snapshot?.predictedClientNeeds ?? []
+  const monthlyPatternsByClient = snapshot?.monthlyPatternsByClient ?? []
+
   const { commsFilterClients, commsPeriodFrom, commsPeriodTo, patternDrillId } =
     opts
 
@@ -28,7 +32,7 @@ export function useCommsPatternsData(opts: {
       category: cat,
       total: totals.get(cat) ?? 0,
     }))
-  }, [])
+  }, [patternTrends])
 
   const monthlyPatternsForClient = useMemo(() => {
     const clientIds =
@@ -38,7 +42,9 @@ export function useCommsPatternsData(opts: {
     const fromMonth = commsPeriodFrom.slice(0, 7)
     const toMonth = commsPeriodTo.slice(0, 7)
     const monthSet = new Set(monthlyPatternsByClient.map((m) => m.month))
-    const months = [...monthSet].sort().filter((m) => m >= fromMonth && m <= toMonth)
+    const months = [...monthSet]
+      .sort()
+      .filter((m) => m >= fromMonth && m <= toMonth)
 
     return months.map((month) => {
       const row: Record<string, string | number> = { month }
@@ -55,7 +61,7 @@ export function useCommsPatternsData(opts: {
       }
       return row
     })
-  }, [commsFilterClients, commsPeriodFrom, commsPeriodTo])
+  }, [commsFilterClients, commsPeriodFrom, commsPeriodTo, monthlyPatternsByClient, clients])
 
   const upcomingPredictedNeeds = useMemo(() => {
     const allow =
@@ -63,7 +69,7 @@ export function useCommsPatternsData(opts: {
     return [...predictedClientNeeds]
       .filter((n) => allow === null || allow.has(n.clientId))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-  }, [commsFilterClients])
+  }, [commsFilterClients, predictedClientNeeds])
 
   const patternDrill = useMemo(() => {
     if (!patternDrillId) return null
@@ -71,7 +77,7 @@ export function useCommsPatternsData(opts: {
     if (!trend) return null
     const samples = patternSamples.filter((s) => s.patternId === patternDrillId)
     return { trend, samples }
-  }, [patternDrillId])
+  }, [patternDrillId, patternTrends, patternSamples])
 
   return {
     patternMixTotals,
