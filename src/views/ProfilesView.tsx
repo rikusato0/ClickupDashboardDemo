@@ -17,12 +17,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
-import {
-  COMMS_CATEGORY_COLORS,
-  clientContacts,
-  clients,
-  staff,
-} from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { Card } from '../components/Card'
 import { ClientPicker } from '../components/ClientPicker'
 import { DateRangePicker } from '../components/DateRangePicker'

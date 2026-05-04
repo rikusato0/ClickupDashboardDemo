@@ -10,11 +10,7 @@ import {
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { TrendingDown, TrendingUp } from 'lucide-react'
-import {
-  clients,
-  sentimentBiweekly,
-  sentimentCells,
-} from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { Card } from '../components/Card'
 import { ClientPicker } from '../components/ClientPicker'
 import { DateRangePicker } from '../components/DateRangePicker'
@@ -61,6 +57,11 @@ export default function SentimentView({ state }: { state: SentimentState }) {
     sentimentPeriodBaselineFrom,
     sentimentPeriodBaselineTo,
   } = state
+
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const sentimentCells = snapshot?.sentimentCells ?? []
+  const sentimentBiweekly = snapshot?.sentimentBiweekly ?? []
 
   const { sentimentTrend } = useSentimentData({
     sentimentClientId,
@@ -294,10 +295,17 @@ export default function SentimentView({ state }: { state: SentimentState }) {
                     {c.name}
                   </td>
                   {([2, 4, 8, 12] as const).map((w) => {
-                    const cell = sentimentCells.find(
-                      (s) =>
-                        s.clientId === c.id && s.windowWeeks === w,
-                    )!
+                    const cell =
+                      sentimentCells.find(
+                        (s) =>
+                          s.clientId === c.id && s.windowWeeks === w,
+                      ) ?? {
+                        clientId: c.id,
+                        windowWeeks: w,
+                        score: 0,
+                        volume: 0,
+                        trend: 'flat' as const,
+                      }
                     const lvl = sentimentLevel(cell.score)
                     const style = SENT_STYLE[lvl]
                     // Find a matching biweekly period (best-effort) so

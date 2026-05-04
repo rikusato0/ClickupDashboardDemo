@@ -4,7 +4,7 @@ import { COMMS_SUB_TABS, type CommsSub } from '../components/CommsSubTabs'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { ClientPicker } from '../components/ClientPicker'
 import { FilterMultiSelect } from '../components/FilterMultiSelect'
-import { clients, staff } from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { cn } from '../utils/cn'
 import { PatternsTab } from './comms/PatternsTab'
 import { ResponseTab } from './comms/ResponseTab'
@@ -54,6 +54,10 @@ export default function CommsView({ state }: { state: CommsState }) {
     respAlertThreshold,
     setRespAlertThreshold,
   } = state
+
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
 
   const filterProps = {
     commsPeriodFrom,
