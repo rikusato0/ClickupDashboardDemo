@@ -1,4 +1,4 @@
-import type { TaskType, TimeEntry } from '../data/mockDashboard'
+import type { TaskType, TimeEntry } from '../types/dashboard'
 
 export function filterEntries(
   entries: TimeEntry[],

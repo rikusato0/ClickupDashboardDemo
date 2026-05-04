@@ -10,8 +10,13 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.6.1",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "googleapis": "^171.4.0",
+    "mongoose": "^9.6.1",
+    "openai": "^6.35.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

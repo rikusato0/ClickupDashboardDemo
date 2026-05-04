@@ -1,4 +1,4 @@
-import type { TaskType } from '../data/mockDashboard'
+import type { TaskType } from '../types/dashboard'
 
 export const CHART_PRIMARY = '#06b6d4'
 export const CHART_GRID = '#e5e7eb'
