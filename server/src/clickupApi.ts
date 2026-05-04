@@ -20,11 +20,15 @@ export async function clickupRequest<T>(
   })
 
   const text = await res.text()
-  let body: unknown = text
-  try {
-    body = text ? JSON.parse(text) : null
-  } catch {
-    body = text
+  let body: unknown
+  if (!text) {
+    body = null
+  } else {
+    try {
+      body = JSON.parse(text)
+    } catch {
+      body = text
+    }
   }
 
   if (!res.ok) {
