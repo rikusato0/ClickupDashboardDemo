@@ -1,3 +1,4 @@
+import './polyfillCrypto.js'
 import mongoose from 'mongoose'
 
 let connected = false
