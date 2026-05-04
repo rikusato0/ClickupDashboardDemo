@@ -20,11 +20,10 @@ import {
   Users,
 } from 'lucide-react'
 import {
-  clients,
-  staff,
   TASK_TYPES,
   type TaskType,
 } from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { WrappedAxisTick } from '../components/WrappedAxisTick'
@@ -90,6 +89,9 @@ export default function TimesheetsView({
   dateTo: string
   state: TimesheetsState
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
   const {
     filterStaff,
     setFilterStaff,

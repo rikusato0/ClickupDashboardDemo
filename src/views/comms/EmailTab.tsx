@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
-import { staff, weeklyEmailVolume } from '../../data/mockDashboard'
+import { useDashboard } from '../../context/DashboardContext'
 import { Card } from '../../components/Card'
 import {
   CHART_GRID,
@@ -31,6 +31,9 @@ export function EmailTab({
   commsFilterClients: string[] | null
   commsFilterStaff: string[] | null
 }) {
+  const { snapshot } = useDashboard()
+  const staff = snapshot?.staff ?? []
+  const weeklyEmailVolume = snapshot?.weeklyEmailVolume ?? []
   const { inboundWeekly, inboundTopClients, last4WeeksEmail } =
     useCommsEmailData({
       commsPeriodFrom,

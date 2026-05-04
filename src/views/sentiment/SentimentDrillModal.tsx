@@ -23,6 +23,11 @@ export function SentimentDrillModal({
   data: SentimentDrillData
   onClose: () => void
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
+  const clientContacts = snapshot?.clientContacts ?? []
+
   const { cell, samples, pairs } = data
   const lvl = sentimentLevel(cell.score)
   const style = SENT_STYLE[lvl]

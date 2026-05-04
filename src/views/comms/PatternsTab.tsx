@@ -21,9 +21,8 @@ import {
 import {
   COMMS_CATEGORIES,
   COMMS_CATEGORY_COLORS,
-  clients,
-  patternTrends,
 } from '../../data/mockDashboard'
+import { useDashboard } from '../../context/DashboardContext'
 import { Card } from '../../components/Card'
 import {
   CHART_GRID,
@@ -46,6 +45,9 @@ export function PatternsTab({
   commsPeriodTo: string
   onOpenDrill: (id: string) => void
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const patternTrends = snapshot?.patternTrends ?? []
   const {
     patternMixTotals,
     monthlyPatternsForClient,
