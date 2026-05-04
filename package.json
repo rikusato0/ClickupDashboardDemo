@@ -7,7 +7,7 @@
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite",
     "dev:server": "npm run dev --prefix server",
-    "build": "tsc -b && vite build && npm run build --prefix server",
+    "build": "tsc -b && vite build && npm install --prefix server && npm run build --prefix server",
     "lint": "eslint .",
     "preview": "vite preview"
   },
