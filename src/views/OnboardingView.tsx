@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react'
-import { staff, type OnboardingClient } from '../data/mockDashboard'
+import type { OnboardingClient } from '../types/dashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { Card } from '../components/Card'
 import { cn } from '../utils/cn'
 import { fmtInt } from '../utils/format'

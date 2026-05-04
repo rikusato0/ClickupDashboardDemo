@@ -17,6 +17,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
+import { COMMS_CATEGORY_COLORS } from '../data/mockDashboard'
 import { useDashboard } from '../context/DashboardContext'
 import { Card } from '../components/Card'
 import { ClientPicker } from '../components/ClientPicker'
@@ -57,6 +58,11 @@ export default function ProfilesView({ state }: { state: ProfilesState }) {
     profilePeriodBaselineFrom,
     profilePeriodBaselineTo,
   } = state
+
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
+  const clientContacts = snapshot?.clientContacts ?? []
 
   const {
     client,
