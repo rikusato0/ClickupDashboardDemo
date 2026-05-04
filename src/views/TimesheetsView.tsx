@@ -170,6 +170,7 @@ export default function TimesheetsView({
   >(null)
   const byStaffTableHeadRef = useRef<HTMLTableSectionElement>(null)
 
+  /* eslint-disable react-hooks/set-state-in-effect -- close column popovers when leaving a table sub-tab */
   useEffect(() => {
     if (tsSub !== 'by_client') setByClientPopoverOpen(null)
   }, [tsSub])
@@ -181,6 +182,7 @@ export default function TimesheetsView({
   useEffect(() => {
     if (tsSub !== 'by_staff') setByStaffPopoverOpen(null)
   }, [tsSub])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (byClientPopoverOpen === null) return
