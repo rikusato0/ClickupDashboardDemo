@@ -1,0 +1,14 @@
+# Local MongoDB for the dashboard API (matches server/.env.example MONGODB_URI).
+# Start: docker compose up -d
+# Stop:  docker compose down
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:27017:27017'
+    volumes:
+      - wl-metrics-mongo-data:/data/db
+
+volumes:
+  wl-metrics-mongo-data:
