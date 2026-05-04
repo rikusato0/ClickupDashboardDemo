@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import {
   COMMS_CATEGORIES,
   type CommsCategory,
-  clients as clientsExport,
 } from '../data/mockDashboard'
 import { useDashboard } from '../context/DashboardContext'
 
@@ -13,7 +12,7 @@ export function useCommsPatternsData(opts: {
   patternDrillId: string | null
 }) {
   const { snapshot } = useDashboard()
-  const clients = snapshot?.clients ?? clientsExport
+  const clients = snapshot?.clients ?? []
   const patternTrends = snapshot?.patternTrends ?? []
   const patternSamples = snapshot?.patternSamples ?? []
   const predictedClientNeeds = snapshot?.predictedClientNeeds ?? []

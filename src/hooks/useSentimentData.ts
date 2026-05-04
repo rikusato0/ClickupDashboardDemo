@@ -1,9 +1,5 @@
 import { useMemo } from 'react'
-import {
-  pairwiseSentiment,
-  sentimentBiweekly,
-  sentimentSampleSets,
-} from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 import { fmtInt } from '../utils/format'
 
 export function useSentimentData(opts: {
@@ -12,6 +8,11 @@ export function useSentimentData(opts: {
   sentimentPeriodFrom?: string
   sentimentPeriodTo?: string
 }) {
+  const { snapshot } = useDashboard()
+  const sentimentBiweekly = snapshot?.sentimentBiweekly ?? []
+  const sentimentSampleSets = snapshot?.sentimentSampleSets ?? []
+  const pairwiseSentiment = snapshot?.pairwiseSentiment ?? []
+
   const {
     sentimentClientId,
     sentimentDrill,
@@ -37,7 +38,12 @@ export function useSentimentData(opts: {
 
     const byPeriod = new Map<
       string,
-      { scoreWeight: number; weightSum: number; msgSum: number; reasonParts: string[] }
+      {
+        scoreWeight: number
+        weightSum: number
+        msgSum: number
+        reasonParts: string[]
+      }
     >()
     for (const r of inWindow) {
       const weight = r.msgCount > 0 ? r.msgCount : 1
@@ -77,6 +83,7 @@ export function useSentimentData(opts: {
     sentimentClientId,
     sentimentPeriodFrom,
     sentimentPeriodTo,
+    sentimentBiweekly,
   ])
 
   const sentimentDrillData = useMemo(() => {
@@ -96,7 +103,7 @@ export function useSentimentData(opts: {
       (p) => p.clientId === sentimentDrill.clientId,
     )
     return { cell, samples, pairs }
-  }, [sentimentDrill])
+  }, [sentimentDrill, sentimentBiweekly, sentimentSampleSets, pairwiseSentiment])
 
   return { sentimentTrend, sentimentDrillData }
 }

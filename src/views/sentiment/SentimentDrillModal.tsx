@@ -1,13 +1,11 @@
 import { format, parseISO, subDays } from 'date-fns'
 import { Network, X } from 'lucide-react'
 import {
-  clientContacts,
-  clients,
-  staff,
   type PairwiseSentiment,
   type SentimentBiweekly,
   type SentimentSampleSet,
-} from '../../data/mockDashboard'
+} from '../../types/dashboard'
+import { useDashboard } from '../../context/DashboardContext'
 import { SENT_STYLE, sentimentLevel } from '../../constants/sentiment'
 import { cn } from '../../utils/cn'
 import { fmtInt } from '../../utils/format'

@@ -1,11 +1,6 @@
 import { useMemo } from 'react'
 import { addDays, max as dfMax, min as dfMin, parseISO } from 'date-fns'
-import {
-  clients,
-  staff,
-  weeklyClientInboundEmails,
-  weeklyEmailVolume,
-} from '../data/mockDashboard'
+import { useDashboard } from '../context/DashboardContext'
 
 function weekOverlapsRange(
   weekStartStr: string,
@@ -25,6 +20,12 @@ export function useCommsEmailData(opts: {
   commsFilterClients: string[] | null
   commsFilterStaff: string[] | null
 }) {
+  const { snapshot } = useDashboard()
+  const clients = snapshot?.clients ?? []
+  const staff = snapshot?.staff ?? []
+  const weeklyClientInboundEmails = snapshot?.weeklyClientInboundEmails ?? []
+  const weeklyEmailVolume = snapshot?.weeklyEmailVolume ?? []
+
   const { commsPeriodFrom, commsPeriodTo, commsFilterClients, commsFilterStaff } =
     opts
 
@@ -48,7 +49,7 @@ export function useCommsEmailData(opts: {
         .filter((x) => x.weekStart === week)
         .reduce((a, x) => a + x.received, 0),
     }))
-  }, [commsPeriodFrom, commsPeriodTo, commsFilterClients])
+  }, [commsPeriodFrom, commsPeriodTo, commsFilterClients, weeklyClientInboundEmails])
 
   const inboundTopClients = useMemo(() => {
     const recentWeeks = inboundWeekly.slice(-4).map((w) => w.week)
@@ -78,7 +79,14 @@ export function useCommsEmailData(opts: {
       }))
       .filter((r) => r.received > 0)
       .sort((a, b) => b.received - a.received)
-  }, [inboundWeekly, commsFilterClients, commsPeriodFrom, commsPeriodTo])
+  }, [
+    inboundWeekly,
+    commsFilterClients,
+    commsPeriodFrom,
+    commsPeriodTo,
+    clients,
+    weeklyClientInboundEmails,
+  ])
 
   const emailChartData = useMemo(() => {
     const volRows = weeklyEmailVolume.filter((row) => {
@@ -114,7 +122,7 @@ export function useCommsEmailData(opts: {
       row['_team_hours'] = Math.round(hrsSum * 10) / 10
       return row
     })
-  }, [commsPeriodFrom, commsPeriodTo, commsFilterStaff])
+  }, [commsPeriodFrom, commsPeriodTo, commsFilterStaff, staff, weeklyEmailVolume])
 
   const last4WeeksEmail = useMemo(
     () => emailChartData.slice(-4),

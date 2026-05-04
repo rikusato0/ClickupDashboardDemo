@@ -1,10 +1,10 @@
 import { format, parseISO } from 'date-fns'
 import { X } from 'lucide-react'
 import {
-  COMMS_CATEGORY_COLORS,
   type CommsCategory,
   type PatternSample,
-} from '../../data/mockDashboard'
+} from '../../types/dashboard'
+import { COMMS_CATEGORY_COLORS } from '../../types/dashboard'
 import { fmtInt } from '../../utils/format'
 
 type PatternDrill = {
