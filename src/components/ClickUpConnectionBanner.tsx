@@ -4,6 +4,8 @@ import { cn } from '../utils/cn'
 type HealthPayload = {
   ok: boolean
   clickupConfigured?: boolean
+  clickupTeamId?: string
+  clickupWorkspaceDisplayName?: string
 }
 
 type WorkspacesPayload =
@@ -29,7 +31,7 @@ type BannerState =
   | {
       kind: 'connected'
       username?: string
-      workspaces: { id: string; name: string }[]
+      primaryWorkspaceLabel: string
     }
 
 export function ClickUpConnectionBanner() {
@@ -87,10 +89,23 @@ export function ClickUpConnectionBanner() {
           userRes.user.email ??
           (userRes.user.id != null ? `User ${userRes.user.id}` : undefined)
 
+        const teamId = health.clickupTeamId?.trim()
+        const fromEnv = health.clickupWorkspaceDisplayName?.trim()
+        const byId = teamId
+          ? wsRes.workspaces.find((w) => w.id === teamId)?.name
+          : undefined
+        const primaryWorkspaceLabel =
+          fromEnv ||
+          byId ||
+          (wsRes.workspaces.length === 1
+            ? wsRes.workspaces[0]!.name
+            : undefined) ||
+          'White Lotus Bookkeeping'
+
         setState({
           kind: 'connected',
           username,
-          workspaces: wsRes.workspaces,
+          primaryWorkspaceLabel,
         })
       } catch {
         if (!cancelled) {
@@ -168,13 +183,6 @@ export function ClickUpConnectionBanner() {
     )
   }
 
-  const wsLabel =
-    state.workspaces.length === 0
-      ? 'No workspaces'
-      : state.workspaces.length === 1
-        ? state.workspaces[0]!.name
-        : `${state.workspaces.length} workspaces`
-
   return (
     <div
       className={cn(
@@ -183,14 +191,11 @@ export function ClickUpConnectionBanner() {
       role="status"
     >
       <span className="font-semibold text-wl-teal-muted">ClickUp API connected</span>
+      {' — '}
+      <span>{state.primaryWorkspaceLabel}</span>
       {state.username ? (
-        <>
-          {' — '}
-          <span className="text-wl-ink-muted">{state.username}</span>
-        </>
+        <span className="text-wl-ink-muted"> · {state.username}</span>
       ) : null}
-      {' · '}
-      <span className="text-wl-ink-muted">{wsLabel}</span>
     </div>
   )
 }

@@ -5,6 +5,10 @@ const envSchema = z.object({
   MONGODB_URI: z.string().optional(),
   CLICKUP_API_TOKEN: z.string().optional(),
   CLICKUP_TEAM_ID: z.string().default('24568950'),
+  /** Shown in the UI when connected (e.g. primary workspace label). */
+  CLICKUP_WORKSPACE_DISPLAY_NAME: z
+    .string()
+    .default('White Lotus Bookkeeping'),
   STAFF_EMAIL_DOMAIN: z.string().default('whitelotusbk.com'),
   /** JSON: { "clientId": ["clientdomain.com"] } */
   CLIENT_EMAIL_DOMAINS_JSON: z.string().optional(),

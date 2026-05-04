@@ -10,6 +10,14 @@ import { runThreadInsights } from '../openaiAnalyze.js'
 import { ClientModel } from '../models.js'
 import { ZoomTranscriptModel } from '../models.js'
 
+function mongoConnectErrorMessage(e: unknown): string {
+  const raw = String(e)
+  if (/\bECONNREFUSED\b/.test(raw) && raw.includes('27017')) {
+    return 'Cannot connect to MongoDB (connection refused on port 27017). Start MongoDB locally (e.g. `mongod` or Docker) or set MONGODB_URI in server/.env — see server/.env.example.'
+  }
+  return raw
+}
+
 export function registerDashboardRoutes(app: Express) {
   app.get('/api/dashboard', async (req: Request, res: Response) => {
     const cfg = loadConfig()
@@ -24,7 +32,7 @@ export function registerDashboardRoutes(app: Express) {
     try {
       await connectDb(cfg.MONGODB_URI)
     } catch (e) {
-      res.status(503).json({ ok: false, error: String(e) })
+      res.status(503).json({ ok: false, error: mongoConnectErrorMessage(e) })
       return
     }
 
@@ -56,7 +64,7 @@ export function registerDashboardRoutes(app: Express) {
     try {
       await connectDb(cfg.MONGODB_URI)
     } catch (e) {
-      res.status(503).json({ ok: false, error: String(e) })
+      res.status(503).json({ ok: false, error: mongoConnectErrorMessage(e) })
       return
     }
 

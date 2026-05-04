@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from 'express'
 import { clickupRequest } from '../clickupApi.js'
+import { loadConfig } from '../config.js'
 
 /** Workspace summary returned to the SPA (subset of ClickUp team payload). */
 export type WorkspaceSummary = {
@@ -22,9 +23,12 @@ function requireToken(res: Response, token: string | undefined): token is string
 export function registerClickUpRoutes(app: Express, getToken: () => string | undefined) {
   app.get('/api/health', (_req: Request, res: Response) => {
     const token = getToken()
+    const cfg = loadConfig()
     res.json({
       ok: true,
       clickupConfigured: Boolean(token?.trim()),
+      clickupTeamId: cfg.CLICKUP_TEAM_ID,
+      clickupWorkspaceDisplayName: cfg.CLICKUP_WORKSPACE_DISPLAY_NAME,
     })
   })
 
