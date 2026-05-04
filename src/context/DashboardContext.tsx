@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, react-refresh/only-export-components -- initial fetch; hook exported with provider */
 import {
   createContext,
   useCallback,

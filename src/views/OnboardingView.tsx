@@ -17,6 +17,8 @@ export default function OnboardingView({
 }: {
   state: OnboardingState
 }) {
+  const { snapshot } = useDashboard()
+  const staff = snapshot?.staff ?? []
   const {
     onboardingState,
     toggleOnboardingStep,

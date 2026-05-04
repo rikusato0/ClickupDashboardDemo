@@ -4,7 +4,9 @@ import { EmailMessageModel, StaffModel, SyncStateModel } from './models.js'
 import { ClientModel } from './models.js'
 
 function parseHeader(
-  headers: { name?: string; value?: string }[] | undefined,
+  headers:
+    | { name?: string | null; value?: string | null }[]
+    | undefined,
   name: string,
 ): string {
   const h = headers?.find(

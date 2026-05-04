@@ -60,6 +60,23 @@ function hoursToBarColor(hours: number, minH: number, maxH: number) {
   return `rgb(${r},${g},${b})`
 }
 
+function SortIcon({
+  active,
+  dir,
+}: {
+  active: boolean
+  dir: 'asc' | 'desc'
+}) {
+  if (!active) {
+    return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" aria-hidden />
+  }
+  return dir === 'asc' ? (
+    <ArrowDownAZ className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
+  ) : (
+    <ArrowUpZA className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
+  )
+}
+
 export type TimesheetsState = {
   filterStaff: string[] | null
   setFilterStaff: (next: string[] | null) => void
@@ -415,23 +432,6 @@ export default function TimesheetsView({
     } else {
       setByStaffSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     }
-  }
-
-  const SortIcon = ({
-    active,
-    dir,
-  }: {
-    active: boolean
-    dir: 'asc' | 'desc'
-  }) => {
-    if (!active) {
-      return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" aria-hidden />
-    }
-    return dir === 'asc' ? (
-      <ArrowDownAZ className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
-    ) : (
-      <ArrowUpZA className="h-3.5 w-3.5 text-wl-teal" aria-hidden />
-    )
   }
 
   return (

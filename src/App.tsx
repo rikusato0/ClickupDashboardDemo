@@ -1,14 +1,14 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
+/* eslint-disable react-hooks/set-state-in-effect -- hydrate pickers when /api/dashboard loads */
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { format, subDays } from 'date-fns'
 import {
-  getMockDashboardSnapshot,
-  onboardingDetailsById,
   type OnboardingClient,
   type TaskType,
 } from './data/mockDashboard'
 import { BrandLogo } from './components/BrandLogo'
 import { ClickUpConnectionBanner } from './components/ClickUpConnectionBanner'
 import { NAV, type NavId } from './constants/nav'
+import { useDashboard } from './context/DashboardContext'
 import { cn } from './utils/cn'
 import { PatternDrillModal } from './views/comms/PatternDrillModal'
 import { SentimentDrillModal } from './views/sentiment/SentimentDrillModal'
@@ -36,17 +36,29 @@ function ViewFallback() {
 }
 
 export default function App() {
-  const snapshot = useMemo(() => getMockDashboardSnapshot(), [])
-  const BASELINE_FROM = format(snapshot.dateRange.start, 'yyyy-MM-dd')
-  const BASELINE_TO = format(snapshot.dateRange.end, 'yyyy-MM-dd')
+  const { snapshot, loading, error, refresh } = useDashboard()
+
+  const BASELINE_FROM =
+    snapshot?.dateRange.start ?? format(subDays(new Date(), 180), 'yyyy-MM-dd')
+  const BASELINE_TO =
+    snapshot?.dateRange.end ?? format(new Date(), 'yyyy-MM-dd')
 
   const [nav, setNav] = useState<NavId>('profiles')
 
   const profilePeriodBounds = useMemo(() => {
+    if (!snapshot) {
+      return {
+        from: BASELINE_FROM,
+        to: BASELINE_TO,
+      }
+    }
     const ends = snapshot.sentimentBiweekly.map((r) => r.periodEnd)
     const sorted = [...new Set(ends)].sort()
+    if (sorted.length === 0) {
+      return { from: snapshot.dateRange.start, to: snapshot.dateRange.end }
+    }
     return { from: sorted[0]!, to: sorted[sorted.length - 1]! }
-  }, [snapshot])
+  }, [snapshot, BASELINE_FROM, BASELINE_TO])
 
   const [profilePeriodFrom, setProfilePeriodFrom] = useState(
     () => profilePeriodBounds.from,
@@ -88,7 +100,9 @@ export default function App() {
   )
   const [respAlertThreshold, setRespAlertThreshold] = useState<number>(90)
 
-  const [sentimentClientId, setSentimentClientId] = useState<string | null>('c4')
+  const [sentimentClientId, setSentimentClientId] = useState<string | null>(
+    null,
+  )
   const [sentimentPeriodFrom, setSentimentPeriodFrom] = useState(
     () => profilePeriodBounds.from,
   )
@@ -100,18 +114,14 @@ export default function App() {
     periodEnd: string
   } | null>(null)
 
-  const [profileClientId, setProfileClientId] = useState<string>('c1')
+  const [profileClientId, setProfileClientId] = useState<string>('')
 
-  const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>(
-    () =>
-      snapshot.onboardingClients.map((c) => ({
-        ...c,
-        steps: c.steps.map((s) => ({ ...s })),
-      })),
-  )
+  const [onboardingState, setOnboardingState] = useState<OnboardingClient[]>([])
   const [onboardingDetailId, setOnboardingDetailId] = useState<string | null>(
     null,
   )
+
+  const onboardingDetailsById = snapshot?.onboardingDetailsById ?? {}
 
   const toggleOnboardingStep = (clientId: string, stepIndex: number) => {
     setOnboardingState((prev) =>
@@ -128,6 +138,52 @@ export default function App() {
       }),
     )
   }
+
+  const datesInitialized = useRef(false)
+  useEffect(() => {
+    if (!snapshot || datesInitialized.current) return
+    datesInitialized.current = true
+    setTimesheetPeriodFrom(snapshot.dateRange.start)
+    setTimesheetPeriodTo(snapshot.dateRange.end)
+    setCommsPeriodFrom(snapshot.dateRange.start)
+    setCommsPeriodTo(snapshot.dateRange.end)
+    const ends = snapshot.sentimentBiweekly.map((r) => r.periodEnd)
+    const sorted = [...new Set(ends)].sort()
+    if (sorted.length >= 2) {
+      setProfilePeriodFrom(sorted[0]!)
+      setProfilePeriodTo(sorted[sorted.length - 1]!)
+      setSentimentPeriodFrom(sorted[0]!)
+      setSentimentPeriodTo(sorted[sorted.length - 1]!)
+    } else {
+      setProfilePeriodFrom(snapshot.dateRange.start)
+      setProfilePeriodTo(snapshot.dateRange.end)
+      setSentimentPeriodFrom(snapshot.dateRange.start)
+      setSentimentPeriodTo(snapshot.dateRange.end)
+    }
+  }, [snapshot])
+
+  useEffect(() => {
+    if (!snapshot?.clients.length) return
+    const first = snapshot.clients[0]!.id
+    setProfileClientId((p) =>
+      p && snapshot.clients.some((c) => c.id === p) ? p : first,
+    )
+    setSentimentClientId((s) =>
+      s && snapshot.clients.some((c) => c.id === s) ? s : first,
+    )
+  }, [snapshot])
+
+  useEffect(() => {
+    if (!snapshot?.onboardingClients.length) return
+    setOnboardingState((prev) =>
+      prev.length > 0
+        ? prev
+        : snapshot.onboardingClients.map((c) => ({
+            ...c,
+            steps: c.steps.map((s) => ({ ...s })),
+          })),
+    )
+  }, [snapshot])
 
   // Drill-modal data lookups happen here so the modals stay open even when
   // the user navigates away from the originating view (matches original
@@ -285,8 +341,28 @@ export default function App() {
             <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted">
               Time, communications, and onboarding metrics in one place.
             </p>
-            <div className="mt-3 max-w-xl">
+            <div className="mt-3 max-w-xl space-y-2">
               <ClickUpConnectionBanner />
+              {loading && (
+                <p className="text-xs text-wl-ink-muted">
+                  Loading dashboard data…
+                </p>
+              )}
+              {error && (
+                <div
+                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+                  role="alert"
+                >
+                  <span className="font-semibold">Dashboard API:</span> {error}
+                  <button
+                    type="button"
+                    onClick={() => void refresh()}
+                    className="ml-2 underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

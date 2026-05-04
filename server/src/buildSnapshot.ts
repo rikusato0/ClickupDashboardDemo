@@ -478,15 +478,18 @@ export async function buildDashboardSnapshot(
     }
   })
   const rawNeeds = await runPredictedNeeds(summaries)
-  const predictedClientNeeds: PredictedNeed[] = rawNeeds.map((n, i) => ({
-    id: `pn-${i}`,
-    clientId: n.clientId,
-    dueDate: n.dueDate,
-    title: n.title,
-    detail: n.detail,
-    confidence: n.confidence,
-    sourcePatternId: null,
-  }))
+  const clientIdSet = new Set(clients.map((c) => c.id))
+  const predictedClientNeeds: PredictedNeed[] = rawNeeds
+    .filter((n) => clientIdSet.has(n.clientId))
+    .map((n, i) => ({
+      id: `pn-${i}`,
+      clientId: n.clientId,
+      dueDate: n.dueDate,
+      title: n.title,
+      detail: n.detail,
+      confidence: n.confidence,
+      sourcePatternId: null,
+    }))
 
   return {
     dateRange: { start: rangeFrom, end: rangeTo },
