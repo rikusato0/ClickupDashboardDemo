@@ -32,7 +32,11 @@ export function registerClickUpRoutes(app: Express, getToken: () => string | und
     const token = getToken()
     if (!requireToken(res, token)) return
     try {
-      const user = await clickupRequest<Record<string, unknown>>(token!, '/user')
+      const data = await clickupRequest<{ user?: Record<string, unknown> }>(
+        token!,
+        '/user',
+      )
+      const user = data.user ?? (data as Record<string, unknown>)
       res.json({ ok: true, user })
     } catch (e) {
       const err = e as { status?: number; body?: unknown }

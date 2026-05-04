@@ -7,6 +7,7 @@ import {
   type TaskType,
 } from './data/mockDashboard'
 import { BrandLogo } from './components/BrandLogo'
+import { ClickUpConnectionBanner } from './components/ClickUpConnectionBanner'
 import { NAV, type NavId } from './constants/nav'
 import { cn } from './utils/cn'
 import { PatternDrillModal } from './views/comms/PatternDrillModal'
@@ -284,6 +285,9 @@ export default function App() {
             <p className="mt-0.5 text-xs leading-snug text-wl-ink-muted">
               Time, communications, and onboarding metrics in one place.
             </p>
+            <div className="mt-3 max-w-xl">
+              <ClickUpConnectionBanner />
+            </div>
           </div>
         </div>
         <div className="border-t border-wl-surface bg-wl-card px-4 sm:px-6 lg:px-10">

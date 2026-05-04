@@ -25,21 +25,12 @@ type BannerState =
   | { kind: 'loading' }
   | { kind: 'api_unavailable'; message: string }
   | { kind: 'token_missing' }
-  | { kind: 'clickup_error'; message: string; details?: unknown }
+  | { kind: 'clickup_error'; message: string }
   | {
       kind: 'connected'
       username?: string
       workspaces: { id: string; name: string }[]
     }
-
-async function fetchJson<T>(path: string): Promise<T> {
-  const res = await fetch(path)
-  const data = (await res.json()) as T
-  if (!res.ok) {
-    throw new Error(typeof data === 'object' && data && 'error' in data ? String((data as { error: unknown }).error) : res.statusText)
-  }
-  return data
-}
 
 export function ClickUpConnectionBanner() {
   const [state, setState] = useState<BannerState>({ kind: 'loading' })
@@ -49,8 +40,18 @@ export function ClickUpConnectionBanner() {
 
     async function run() {
       try {
-        const health = await fetchJson<HealthPayload>('/api/health')
+        const healthRes = await fetch('/api/health')
+        const health = (await healthRes.json()) as HealthPayload
         if (cancelled) return
+
+        if (!healthRes.ok || !health.ok) {
+          setState({
+            kind: 'api_unavailable',
+            message:
+              'Backend unreachable. Run `npm run dev` (starts API on port 3001) or open the dashboard via Vite with proxy.',
+          })
+          return
+        }
 
         if (!health.clickupConfigured) {
           setState({ kind: 'token_missing' })
@@ -59,7 +60,9 @@ export function ClickUpConnectionBanner() {
 
         const [userRes, wsRes] = await Promise.all([
           fetch('/api/clickup/user').then((r) => r.json() as Promise<UserPayload>),
-          fetch('/api/clickup/workspaces').then((r) => r.json() as Promise<WorkspacesPayload>),
+          fetch('/api/clickup/workspaces').then(
+            (r) => r.json() as Promise<WorkspacesPayload>,
+          ),
         ])
         if (cancelled) return
 
@@ -67,7 +70,6 @@ export function ClickUpConnectionBanner() {
           setState({
             kind: 'clickup_error',
             message: userRes.error ?? 'Could not load ClickUp user',
-            details: userRes.details,
           })
           return
         }
@@ -76,7 +78,6 @@ export function ClickUpConnectionBanner() {
           setState({
             kind: 'clickup_error',
             message: wsRes.error ?? 'Could not load workspaces',
-            details: wsRes.details,
           })
           return
         }
@@ -120,8 +121,7 @@ export function ClickUpConnectionBanner() {
     return (
       <div
         className={cn(
-          'rounded-lg border px-3 py-2 text-xs',
-          'border-amber-500/35 bg-amber-500/10 text-amber-950 dark:text-amber-100',
+          'rounded-lg border border-wl-orange/40 bg-wl-card px-3 py-2 text-xs text-wl-ink',
         )}
         role="status"
       >
@@ -134,21 +134,20 @@ export function ClickUpConnectionBanner() {
     return (
       <div
         className={cn(
-          'rounded-lg border px-3 py-2 text-xs',
-          'border-amber-500/35 bg-amber-500/10 text-amber-950 dark:text-amber-100',
+          'rounded-lg border border-wl-orange/40 bg-wl-card px-3 py-2 text-xs text-wl-ink',
         )}
         role="status"
       >
         ClickUp token not configured on the API server. Copy{' '}
-        <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[10px]">
+        <code className="rounded bg-wl-surface px-1 py-0.5 font-mono text-[10px]">
           server/.env.example
         </code>{' '}
         to{' '}
-        <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[10px]">
+        <code className="rounded bg-wl-surface px-1 py-0.5 font-mono text-[10px]">
           server/.env
         </code>{' '}
         and set{' '}
-        <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[10px]">
+        <code className="rounded bg-wl-surface px-1 py-0.5 font-mono text-[10px]">
           CLICKUP_API_TOKEN
         </code>
         .
@@ -160,8 +159,7 @@ export function ClickUpConnectionBanner() {
     return (
       <div
         className={cn(
-          'rounded-lg border px-3 py-2 text-xs',
-          'border-red-500/35 bg-red-500/10 text-red-950 dark:text-red-100',
+          'rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-wl-ink',
         )}
         role="alert"
       >
@@ -180,12 +178,11 @@ export function ClickUpConnectionBanner() {
   return (
     <div
       className={cn(
-        'rounded-lg border px-3 py-2 text-xs',
-        'border-emerald-600/25 bg-emerald-600/10 text-emerald-950 dark:text-emerald-100',
+        'rounded-lg border border-wl-teal/40 bg-wl-teal-soft px-3 py-2 text-xs text-wl-ink',
       )}
       role="status"
     >
-      <span className="font-semibold">ClickUp API connected</span>
+      <span className="font-semibold text-wl-teal-muted">ClickUp API connected</span>
       {state.username ? (
         <>
           {' — '}
