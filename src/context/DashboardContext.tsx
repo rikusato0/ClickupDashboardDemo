@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { format, subDays } from 'date-fns'
 import type { DashboardSnapshot } from '../types/dashboard'
+import { apiUrl } from '../utils/apiUrl'
 
 type Ctx = {
   snapshot: DashboardSnapshot | null
@@ -30,11 +31,31 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     try {
       const to = format(new Date(), 'yyyy-MM-dd')
       const from = format(subDays(new Date(), 540), 'yyyy-MM-dd')
-      const res = await fetch(`/api/dashboard?from=${from}&to=${to}`)
-      const j = (await res.json()) as {
+      const res = await fetch(
+        apiUrl(`/api/dashboard?from=${from}&to=${to}`),
+      )
+      const raw = await res.text()
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.includes('application/json')) {
+        setError(
+          `Dashboard API returned HTML or non-JSON (${res.status}). Same-origin: ensure your host reverse-proxies /api to Express. Split deploy: set VITE_API_BASE_URL to your API origin at build time. Local: run npm run dev (client + server). Preview: ${raw.slice(0, 80)}…`,
+        )
+        setSnapshot(null)
+        return
+      }
+      let j: {
         ok?: boolean
         error?: string
         data?: DashboardSnapshot
+      }
+      try {
+        j = JSON.parse(raw) as typeof j
+      } catch {
+        setError(
+          `Dashboard API is not valid JSON. Check API URL (VITE_API_BASE_URL) and that /api/dashboard returns JSON. Raw: ${raw.slice(0, 120)}…`,
+        )
+        setSnapshot(null)
+        return
       }
       if (!res.ok || !j.ok) {
         setError(j.error ?? res.statusText)

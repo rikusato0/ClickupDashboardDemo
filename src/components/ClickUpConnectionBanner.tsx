@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { cn } from '../utils/cn'
+import { apiUrl } from '../utils/apiUrl'
 
 type HealthPayload = {
   ok: boolean
@@ -42,7 +43,7 @@ export function ClickUpConnectionBanner() {
 
     async function run() {
       try {
-        const healthRes = await fetch('/api/health')
+        const healthRes = await fetch(apiUrl('/api/health'))
         const health = (await healthRes.json()) as HealthPayload
         if (cancelled) return
 
@@ -50,7 +51,7 @@ export function ClickUpConnectionBanner() {
           setState({
             kind: 'api_unavailable',
             message:
-              'Backend unreachable. Run `npm run dev` (starts API on port 3001) or open the dashboard via Vite with proxy.',
+              'Backend unreachable. Local: `npm run dev`. Production: reverse-proxy /api to Express, or set VITE_API_BASE_URL to your API origin when building the SPA.',
           })
           return
         }
@@ -61,8 +62,10 @@ export function ClickUpConnectionBanner() {
         }
 
         const [userRes, wsRes] = await Promise.all([
-          fetch('/api/clickup/user').then((r) => r.json() as Promise<UserPayload>),
-          fetch('/api/clickup/workspaces').then(
+          fetch(apiUrl('/api/clickup/user')).then(
+            (r) => r.json() as Promise<UserPayload>,
+          ),
+          fetch(apiUrl('/api/clickup/workspaces')).then(
             (r) => r.json() as Promise<WorkspacesPayload>,
           ),
         ])
@@ -112,7 +115,7 @@ export function ClickUpConnectionBanner() {
           setState({
             kind: 'api_unavailable',
             message:
-              'Backend unreachable. Run `npm run dev` (starts API on port 3001) or open the dashboard via Vite with proxy.',
+              'Backend unreachable. Local: `npm run dev`. Production: reverse-proxy /api to Express, or set VITE_API_BASE_URL to your API origin when building the SPA.',
           })
         }
       }
