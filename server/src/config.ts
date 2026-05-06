@@ -12,6 +12,10 @@ const envSchema = z.object({
   STAFF_EMAIL_DOMAIN: z.string().default('whitelotusbk.com'),
   /** JSON: { "clientId": ["clientdomain.com"] } */
   CLIENT_EMAIL_DOMAINS_JSON: z.string().optional(),
+  /** JSON: { "clientId": ["ceo@gmail.com","cfo@partner.org"] } — explicit contacts when domain match is insufficient */
+  CLIENT_CONTACT_EMAILS_JSON: z.string().optional(),
+  /** IANA TZ for “new calendar day” daily sync guard (default UTC). */
+  SYNC_TIMEZONE: z.string().default('UTC'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -53,10 +57,33 @@ export function parseClientDomainMap(
     const obj = JSON.parse(raw) as Record<string, string[] | string>
     for (const [k, v] of Object.entries(obj)) {
       const arr = Array.isArray(v) ? v : [v]
-      m.set(k, arr.map((d) => d.toLowerCase()))
+      m.set(k, arr.map((d) => String(d).toLowerCase().trim()))
     }
   } catch {
     console.warn('CLIENT_EMAIL_DOMAINS_JSON invalid JSON')
+  }
+  return m
+}
+
+/** Maps ClickUp client id (e.g. f-…) → explicit inbound email addresses (lowercase). */
+export function parseClientContactEmailsMap(
+  raw: string | undefined,
+): Map<string, string[]> {
+  const m = new Map<string, string[]>()
+  if (!raw?.trim()) return m
+  try {
+    const obj = JSON.parse(raw) as Record<string, string[] | string>
+    for (const [k, v] of Object.entries(obj)) {
+      const arr = Array.isArray(v) ? v : [v]
+      m.set(
+        k,
+        arr
+          .map((e) => String(e).trim().toLowerCase())
+          .filter((e) => e.includes('@')),
+      )
+    }
+  } catch {
+    console.warn('CLIENT_CONTACT_EMAILS_JSON invalid JSON')
   }
   return m
 }

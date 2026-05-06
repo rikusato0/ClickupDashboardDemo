@@ -2,13 +2,38 @@ import type { Express, Request, Response } from 'express'
 import { format, subDays } from 'date-fns'
 import { loadConfig } from '../config.js'
 import { connectDb } from '../db.js'
+import { maybeRunDailyExternalSync } from '../dailySync.js'
 import { buildDashboardSnapshot } from '../buildSnapshot.js'
 import { runClickUpSync } from '../clickupSync.js'
 import { runGmailSync } from '../gmailSync.js'
 import { runCalendarSync } from '../calendarSync.js'
 import { runThreadInsights } from '../openaiAnalyze.js'
-import { ClientModel } from '../models.js'
+import {
+  resolveClientIdFromParticipants,
+  loadClientEmailResolution,
+} from '../emailClientResolve.js'
 import { ZoomTranscriptModel } from '../models.js'
+
+function zoomParticipantEmailsFromObject(obj: Record<string, unknown>): string[] {
+  const out = new Set<string>()
+  const push = (s: unknown) => {
+    if (typeof s === 'string' && s.includes('@'))
+      out.add(s.trim().toLowerCase())
+  }
+  push(obj.host_email)
+  const ps = obj.participants
+  if (Array.isArray(ps)) {
+    for (const p of ps) {
+      if (p && typeof p === 'object') push((p as { email?: string }).email)
+    }
+  }
+  const pe = obj.participant_emails
+  if (Array.isArray(pe)) {
+    for (const x of pe) push(x)
+  }
+  push(obj.user_email)
+  return [...out]
+}
 
 function mongoConnectErrorMessage(e: unknown): string {
   const raw = String(e)
@@ -44,10 +69,7 @@ export function registerDashboardRoutes(app: Express) {
       format(subDays(new Date(), 540), 'yyyy-MM-dd')
 
     try {
-      if (cfg.CLICKUP_API_TOKEN?.trim()) {
-        const n = await ClientModel.countDocuments()
-        if (n === 0) await runClickUpSync()
-      }
+      await maybeRunDailyExternalSync()
       const data = await buildDashboardSnapshot(fromStr, toStr)
       res.json({ ok: true, data })
     } catch (e) {
@@ -98,13 +120,24 @@ export function registerDashboardRoutes(app: Express) {
         const topic = String(obj?.topic ?? '')
         const host = String((obj as { host_email?: string }).host_email ?? '')
         const text = String((obj as { transcript?: string }).transcript ?? '')
+        const participantEmails = zoomParticipantEmailsFromObject(
+          (obj ?? {}) as Record<string, unknown>,
+        )
+        const maps = await loadClientEmailResolution()
+        const clientId = resolveClientIdFromParticipants(
+          participantEmails.length > 0 ? participantEmails : [host],
+          cfg.STAFF_EMAIL_DOMAIN.toLowerCase(),
+          maps,
+        )
         await ZoomTranscriptModel.findOneAndUpdate(
           { meetingUuid: uuid },
           {
             meetingUuid: uuid,
             topic,
             hostEmail: host,
+            participantEmails,
             transcriptText: text,
+            clientId,
             rawPayload: body,
           },
           { upsert: true },

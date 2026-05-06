@@ -14,6 +14,10 @@ const ClientSchema = new mongoose.Schema(
     openTaskCount: { type: Number, default: 0 },
     engagementCode: { type: String, default: '' },
     emailDomains: { type: [String], default: [] },
+    /** Known client contact addresses (CEO, AP, external partners) beyond company domain. */
+    contactEmails: { type: [String], default: [] },
+    /** All ClickUp list ids for this client (layout varies per client). */
+    clickUpListIds: { type: [String], default: [] },
   },
   { timestamps: true },
 )
@@ -45,6 +49,8 @@ const TimeEntrySchema = new mongoose.Schema(
     description: { type: String, default: '' },
     clickUpTaskId: { type: String, default: '' },
     clickUpTaskName: { type: String, default: '' },
+    /** ClickUp list name when tags don’t encode TASK_TYPES — varies per client. */
+    clickUpListName: { type: String, default: '' },
   },
   { timestamps: true },
 )
@@ -53,6 +59,36 @@ TimeEntrySchema.index({ date: 1, staffId: 1 })
 
 export const TimeEntryModel =
   mongoose.models.TimeEntry || mongoose.model('TimeEntry', TimeEntrySchema)
+
+const ClickUpTaskSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true, index: true },
+    clientId: { type: String, required: true, index: true },
+    clickUpListId: { type: String, required: true, index: true },
+    listName: { type: String, default: '' },
+    clickUpSpaceId: { type: String, default: '' },
+    clickUpFolderId: { type: String, default: '' },
+    name: { type: String, required: true },
+    status: { type: String, default: '' },
+    statusType: { type: String, default: '' },
+    priority: { type: String, default: '' },
+    assigneeIds: { type: [String], default: [] },
+    tagNames: { type: [String], default: [] },
+    /** Values from TASK_TYPES when a tag matches; else defaults for time-entry bucketing. */
+    resolvedTaskType: { type: String, required: true },
+    dueDate: { type: String, default: '' },
+    startDate: { type: String, default: '' },
+    url: { type: String, default: '' },
+    dateUpdatedMs: { type: String, default: '' },
+  },
+  { timestamps: true },
+)
+
+ClickUpTaskSchema.index({ clientId: 1, clickUpListId: 1 })
+
+export const ClickUpTaskModel =
+  mongoose.models.ClickUpTask ||
+  mongoose.model('ClickUpTask', ClickUpTaskSchema)
 
 const EmailMessageSchema = new mongoose.Schema(
   {

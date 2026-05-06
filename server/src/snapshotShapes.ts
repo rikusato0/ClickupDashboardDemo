@@ -50,6 +50,24 @@ export interface TimeEntry {
   description: string
   clickUpTaskId: string
   clickUpTaskName: string
+  /** ClickUp list title when workflow varies per client (tags may still drive taskType). */
+  clickUpListName?: string
+}
+
+/** Latest synced ClickUp tasks for dashboards / OpenAI context (lists differ per client). */
+export interface ClickUpTaskSnapshot {
+  id: string
+  clientId: string
+  clickUpListId: string
+  listName: string
+  name: string
+  status: string
+  statusType: string
+  assigneeIds: string[]
+  tagNames: string[]
+  resolvedTaskType: TaskType | string
+  dueDate: string
+  url: string
 }
 
 export interface ClientContact {
@@ -181,6 +199,7 @@ export interface DashboardSnapshot {
   dateRange: { start: string; end: string }
   clients: Client[]
   staff: Staff[]
+  clickUpTasks: ClickUpTaskSnapshot[]
   timeEntries: TimeEntry[]
   clientContacts: ClientContact[]
   responseByContact: ResponseSample[]

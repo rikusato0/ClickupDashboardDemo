@@ -1,19 +1,19 @@
 import { clickupRequest } from './clickupApi.js'
-import { loadConfig, parseClientDomainMap } from './config.js'
 import {
+  loadConfig,
+  parseClientContactEmailsMap,
+  parseClientDomainMap,
+} from './config.js'
+import { TASK_TYPES } from './dashboardTypes.js'
+import {
+  ClickUpTaskModel,
   ClientModel,
   StaffModel,
-  TimeEntryModel,
   SyncStateModel,
+  TimeEntryModel,
 } from './models.js'
 
-const TASK_TYPE_NAMES = new Set([
-  'One-time',
-  'Recurring',
-  'OT',
-  'Month end',
-  'Payroll',
-])
+const TASK_TYPE_NAMES = new Set<string>(TASK_TYPES)
 
 type CuUser = { id: number; username?: string; email?: string }
 
@@ -30,6 +30,29 @@ type CuFoldersResp = { folders?: { id: string; name: string }[] }
 type CuListsResp = { lists?: { id: string; name: string }[] }
 
 type CuTag = { name?: string }
+
+type CuStatus = {
+  status?: string
+  type?: string
+}
+
+type CuAssignee = { id?: number | string }
+
+type CuTask = {
+  id: string
+  name?: string
+  status?: CuStatus
+  assignees?: CuAssignee[]
+  tags?: CuTag[]
+  priority?: { priority?: string } | string
+  due_date?: string | null
+  start_date?: string | null
+  date_updated?: string | null
+  list?: { id?: string; name?: string }
+  folder?: { id?: string; name?: string }
+  space?: { id?: string }
+  url?: string
+}
 
 type CuTimeTask = {
   id: string
@@ -54,6 +77,11 @@ type CuTimeEntriesResp = {
   data?: CuTimeEntry[]
 }
 
+type CuTaskPageResp = {
+  tasks?: CuTask[]
+  last_page?: boolean
+}
+
 function initialsFromName(name: string): string {
   const p = name.split(/\s+/).filter(Boolean)
   if (p.length === 0) return '?'
@@ -61,12 +89,26 @@ function initialsFromName(name: string): string {
   return `${p[0]![0]!}${p[1]![0]!}`.toUpperCase()
 }
 
-function pickTaskType(task: CuTimeTask): string {
-  for (const t of task.tags ?? []) {
+function priorityLabel(p: CuTask['priority']): string {
+  if (!p) return ''
+  if (typeof p === 'string') return p
+  return p.priority ?? ''
+}
+
+function pickTaskTypeFromTags(tags: CuTag[] | undefined): string | null {
+  for (const t of tags ?? []) {
     const n = t.name?.trim()
     if (n && TASK_TYPE_NAMES.has(n)) return n
   }
-  return 'Recurring'
+  return null
+}
+
+/** Tag match wins; otherwise bucket hours under Recurring but preserve list name on rows. */
+function resolvedTaskTypeFromTagsAndList(
+  tags: CuTag[] | undefined,
+  _listName: string,
+): string {
+  return pickTaskTypeFromTags(tags) ?? 'Recurring'
 }
 
 function clientIdFromTask(task: CuTimeTask): string {
@@ -76,12 +118,110 @@ function clientIdFromTask(task: CuTimeTask): string {
   return sid ? `s-${sid}` : 'unassigned'
 }
 
+function taskIsNonClosed(task: CuTask): boolean {
+  const t = task.status?.type?.toLowerCase()
+  if (t === 'closed') return false
+  const st = task.status?.status?.toLowerCase() ?? ''
+  if (st === 'complete' || st === 'completed') return false
+  return true
+}
+
+async function mergedContactEmails(
+  cid: string,
+  fromEnv: string[],
+): Promise<string[]> {
+  const prev = await ClientModel.findOne({ id: cid }).select('contactEmails').lean()
+  const prevArr = (prev?.contactEmails ?? []) as string[]
+  return [...new Set([...fromEnv.map((e) => e.toLowerCase()), ...prevArr.map((e) => String(e).toLowerCase())])]
+}
+
+async function fetchAllTasksForList(
+  token: string,
+  listId: string,
+): Promise<CuTask[]> {
+  const acc: CuTask[] = []
+  let page = 0
+  for (;;) {
+    const qs = new URLSearchParams({
+      page: String(page),
+      include_closed: 'true',
+      subtasks: 'false',
+    })
+    const path = `/list/${encodeURIComponent(listId)}/task?${qs}`
+    const data = await clickupRequest<CuTaskPageResp>(token, path)
+    const batch = data.tasks ?? []
+    acc.push(...batch)
+    if (batch.length === 0 || data.last_page === true) break
+    page += 1
+    if (page > 500) break
+  }
+  return acc
+}
+
+export async function syncClickUpTasks(
+  token: string,
+): Promise<{ upserted: number; clients: number }> {
+  const clients = await ClientModel.find({
+    clickUpListIds: { $exists: true, $not: { $size: 0 } },
+  }).lean()
+
+  let upserted = 0
+  for (const c of clients) {
+    const clientId = c.id
+    const listIds = (c.clickUpListIds ?? []) as string[]
+    let openCount = 0
+
+    for (const listId of listIds) {
+      const tasks = await fetchAllTasksForList(token, listId)
+      for (const task of tasks) {
+        const lid = String(task.list?.id ?? listId)
+        const listName = task.list?.name ?? ''
+        const tagNames = (task.tags ?? []).map((x) => x.name?.trim()).filter(Boolean) as string[]
+        const resolvedTaskType = resolvedTaskTypeFromTagsAndList(task.tags, listName)
+        const assigneeIds = (task.assignees ?? []).map((a) => String(a.id ?? '')).filter(Boolean)
+
+        if (taskIsNonClosed(task)) openCount += 1
+
+        await ClickUpTaskModel.findOneAndUpdate(
+          { id: task.id },
+          {
+            id: task.id,
+            clientId,
+            clickUpListId: lid,
+            listName,
+            clickUpSpaceId: String(task.space?.id ?? c.clickUpSpaceId ?? ''),
+            clickUpFolderId: String(task.folder?.id ?? c.clickUpFolderId ?? ''),
+            name: task.name ?? '',
+            status: task.status?.status ?? '',
+            statusType: task.status?.type ?? '',
+            priority: priorityLabel(task.priority),
+            assigneeIds,
+            tagNames,
+            resolvedTaskType,
+            dueDate: task.due_date ? String(task.due_date) : '',
+            startDate: task.start_date ? String(task.start_date) : '',
+            url: task.url ?? '',
+            dateUpdatedMs: task.date_updated ? String(task.date_updated) : '',
+          },
+          { upsert: true },
+        )
+        upserted += 1
+      }
+    }
+
+    await ClientModel.updateOne({ id: clientId }, { openTaskCount: openCount })
+  }
+
+  return { upserted, clients: clients.length }
+}
+
 export async function syncClickUpStructures(
   token: string,
   teamId: string,
 ): Promise<void> {
   const cfg = loadConfig()
   const domainMap = parseClientDomainMap(cfg.CLIENT_EMAIL_DOMAINS_JSON)
+  const contactEmailsMap = parseClientContactEmailsMap(cfg.CLIENT_CONTACT_EMAILS_JSON)
 
   const teamData = await clickupRequest<CuTeamResp>(
     token,
@@ -121,6 +261,14 @@ export async function syncClickUpStructures(
     if (folders.length === 0) {
       const cid = `s-${sp.id}`
       const extraDomains = domainMap.get(cid) ?? []
+      const listsResp = await clickupRequest<CuListsResp>(
+        token,
+        `/space/${encodeURIComponent(sp.id)}/list?archived=false`,
+      )
+      const lists = listsResp.lists ?? []
+      const listIds = lists.map((l) => l.id)
+      const mergedEmails = await mergedContactEmails(cid, contactEmailsMap.get(cid) ?? [])
+
       await ClientModel.findOneAndUpdate(
         { id: cid },
         {
@@ -130,7 +278,9 @@ export async function syncClickUpStructures(
           segment: '',
           clickUpSpaceId: sp.id,
           clickUpFolderId: '',
-          clickUpListId: '',
+          clickUpListId: lists[0]?.id ?? '',
+          clickUpListIds: listIds,
+          contactEmails: mergedEmails,
           accountManagerStaffId: '',
           openTaskCount: 0,
           engagementCode: sp.id,
@@ -148,8 +298,10 @@ export async function syncClickUpStructures(
         `/folder/${encodeURIComponent(f.id)}/list?archived=false`,
       )
       const lists = listsResp.lists ?? []
+      const listIds = lists.map((l) => l.id)
       const firstList = lists[0]
       const extraDomains = domainMap.get(cid) ?? []
+      const mergedEmails = await mergedContactEmails(cid, contactEmailsMap.get(cid) ?? [])
 
       await ClientModel.findOneAndUpdate(
         { id: cid },
@@ -161,6 +313,8 @@ export async function syncClickUpStructures(
           clickUpSpaceId: sp.id,
           clickUpFolderId: f.id,
           clickUpListId: firstList?.id ?? '',
+          clickUpListIds: listIds,
+          contactEmails: mergedEmails,
           accountManagerStaffId: '',
           openTaskCount: 0,
           engagementCode: f.id,
@@ -181,6 +335,18 @@ export async function syncClickUpTimeEntries(
   const path = `/team/${encodeURIComponent(teamId)}/time_entries?start_date=${startMs}&end_date=${endMs}`
   const data = await clickupRequest<CuTimeEntriesResp>(token, path)
   const rows = data.data ?? []
+
+  const taskIds = [...new Set(rows.map((r) => r.task?.id).filter(Boolean))] as string[]
+  const metaRows =
+    taskIds.length > 0
+      ? await ClickUpTaskModel.find({ id: { $in: taskIds } })
+          .select(['id', 'resolvedTaskType', 'listName'])
+          .lean()
+      : []
+  const metaByTask = new Map(
+    metaRows.map((m) => [m.id, m as { resolvedTaskType: string; listName?: string }]),
+  )
+
   let n = 0
   for (const te of rows) {
     const task = te.task
@@ -193,6 +359,12 @@ export async function syncClickUpTimeEntries(
     const d = new Date(Number(te.start))
     const dateStr = d.toISOString().slice(0, 10)
     const id = `cu-te-${te.id}`
+    const meta = metaByTask.get(task.id)
+    const taskType =
+      meta?.resolvedTaskType ??
+      resolvedTaskTypeFromTagsAndList(task.tags, '')
+    const clickUpListName = meta?.listName ?? ''
+
     await TimeEntryModel.findOneAndUpdate(
       { id },
       {
@@ -200,11 +372,12 @@ export async function syncClickUpTimeEntries(
         date: dateStr,
         staffId,
         clientId: cid,
-        taskType: pickTaskType(task),
+        taskType,
         hours,
         description: te.description?.trim() || task.name || '',
         clickUpTaskId: task.id,
         clickUpTaskName: task.name ?? '',
+        clickUpListName,
       },
       { upsert: true },
     )
@@ -221,12 +394,21 @@ export async function runClickUpSync(): Promise<{ ok: boolean; error?: string }>
 
   try {
     await syncClickUpStructures(token, teamId)
+    const taskStats = await syncClickUpTasks(token)
     const end = Date.now()
     const start = end - 180 * 24 * 60 * 60 * 1000
     const count = await syncClickUpTimeEntries(token, teamId, start, end)
     await SyncStateModel.findOneAndUpdate(
       { key: 'clickup' },
-      { key: 'clickup', lastRunAt: new Date(), meta: { timeEntries: count } },
+      {
+        key: 'clickup',
+        lastRunAt: new Date(),
+        meta: {
+          timeEntries: count,
+          tasksUpserted: taskStats.upserted,
+          taskClientsSynced: taskStats.clients,
+        },
+      },
       { upsert: true },
     )
     return { ok: true }

@@ -6,6 +6,7 @@ import {
   subWeeks,
 } from 'date-fns'
 import {
+  ClickUpTaskModel,
   ClientModel,
   EmailMessageModel,
   StaffModel,
@@ -16,6 +17,7 @@ import {
 import { COMMS_CATEGORIES, type CommsCategory } from './dashboardTypes.js'
 import { runPredictedNeeds } from './openaiAnalyze.js'
 import type {
+  ClickUpTaskSnapshot,
   Client,
   ClientContact,
   DailyResponseTime,
@@ -91,6 +93,37 @@ export async function buildDashboardSnapshot(
 
   const staffById = new Map(staff.map((s) => [s.id, s]))
 
+  const clientIds = clients.map((c) => c.id)
+  const taskDocs = await ClickUpTaskModel.find({
+    clientId: { $in: clientIds },
+  })
+    .sort({ updatedAt: -1 })
+    .limit(4000)
+    .lean()
+
+  type TaskDoc = (typeof taskDocs)[number]
+  const tasksByClient = new Map<string, TaskDoc[]>()
+  for (const td of taskDocs) {
+    const arr = tasksByClient.get(td.clientId) ?? []
+    arr.push(td)
+    tasksByClient.set(td.clientId, arr)
+  }
+
+  const clickUpTasks: ClickUpTaskSnapshot[] = taskDocs.map((td) => ({
+    id: td.id,
+    clientId: td.clientId,
+    clickUpListId: td.clickUpListId,
+    listName: td.listName ?? '',
+    name: td.name,
+    status: td.status ?? '',
+    statusType: td.statusType ?? '',
+    assigneeIds: td.assigneeIds ?? [],
+    tagNames: td.tagNames ?? [],
+    resolvedTaskType: td.resolvedTaskType,
+    dueDate: td.dueDate ?? '',
+    url: td.url ?? '',
+  }))
+
   const timeEntries: TimeEntry[] = timeDocs.map((t) => ({
     id: t.id,
     date: t.date,
@@ -101,6 +134,7 @@ export async function buildDashboardSnapshot(
     description: t.description,
     clickUpTaskId: t.clickUpTaskId,
     clickUpTaskName: t.clickUpTaskName,
+    clickUpListName: t.clickUpListName ?? '',
   }))
 
   const msgs = await EmailMessageModel.find({
@@ -461,20 +495,37 @@ export async function buildDashboardSnapshot(
     })
   }
 
-  const zoomBits = await ZoomTranscriptModel.find({}).limit(20).lean()
-  const zoomNote = zoomBits
-    .map((z) => `${z.topic}: ${z.transcriptText.slice(0, 400)}`)
-    .join('\n')
+  const zoomBits = await ZoomTranscriptModel.find({})
+    .sort({ updatedAt: -1 })
+    .limit(40)
+    .lean()
 
   const summaries = clients.map((c) => {
     const notes = insights
       .filter((i) => i.clientId === c.id)
       .map((i) => i.summary)
       .join(' | ')
+    const taskLines = (tasksByClient.get(c.id) ?? [])
+      .slice(0, 35)
+      .map((x) => `${x.listName}: ${x.name} (${x.status})`)
+      .join(' | ')
+    const zoomLines = zoomBits
+      .filter((z) => z.clientId === c.id)
+      .map((z) => `${z.topic}: ${z.transcriptText.slice(0, 380)}`)
+      .join(' | ')
+    const unscopedZoom = zoomBits
+      .filter((z) => !z.clientId)
+      .slice(0, 2)
+      .map((z) => `${z.topic}: ${z.transcriptText.slice(0, 220)}`)
+      .join(' | ')
+    const zoomMerged = [zoomLines, unscopedZoom].filter(Boolean).join(' | ')
     return {
       id: c.id,
       name: c.name,
-      notes: `${notes}\nMeetings:\n${zoomNote}`.slice(0, 4000),
+      notes: `${notes}\nTasks:\n${taskLines}\nMeetings:\n${zoomMerged}`.slice(
+        0,
+        12000,
+      ),
     }
   })
   const rawNeeds = await runPredictedNeeds(summaries)
@@ -495,6 +546,7 @@ export async function buildDashboardSnapshot(
     dateRange: { start: rangeFrom, end: rangeTo },
     clients,
     staff,
+    clickUpTasks,
     timeEntries,
     clientContacts,
     responseByContact,

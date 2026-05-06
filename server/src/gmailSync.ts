@@ -1,7 +1,7 @@
 import { google } from 'googleapis'
-import { loadConfig, parseClientDomainMap } from './config.js'
+import { loadConfig } from './config.js'
+import { loadClientEmailResolution } from './emailClientResolve.js'
 import { EmailMessageModel, StaffModel, SyncStateModel } from './models.js'
-import { ClientModel } from './models.js'
 
 function parseHeader(
   headers:
@@ -36,25 +36,6 @@ function domainOf(email: string): string {
   return email.split('@')[1]?.toLowerCase() ?? ''
 }
 
-async function buildDomainToClientId(
-  cfg: ReturnType<typeof loadConfig>,
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>()
-  const envExtras = parseClientDomainMap(cfg.CLIENT_EMAIL_DOMAINS_JSON)
-  const clients = await ClientModel.find({}).lean()
-  for (const c of clients) {
-    const domains = [
-      ...(envExtras.get(c.id) ?? []),
-      ...(c.emailDomains ?? []),
-      ...(c.domain ? [c.domain] : []),
-    ].filter(Boolean) as string[]
-    for (const d of domains) {
-      map.set(d.toLowerCase(), c.id)
-    }
-  }
-  return map
-}
-
 function oauthClient(cfg: ReturnType<typeof loadConfig>) {
   const cid = cfg.GOOGLE_CLIENT_ID
   const secret = cfg.GOOGLE_CLIENT_SECRET
@@ -81,7 +62,7 @@ export async function runGmailSync(): Promise<{
   }
 
   const staffDomain = cfg.STAFF_EMAIL_DOMAIN.toLowerCase()
-  const domainToClient = await buildDomainToClientId(cfg)
+  const { domainToClientId, emailToClientId } = await loadClientEmailResolution()
   const staffByEmail = new Map<string, string>()
   for (const s of await StaffModel.find({}).lean()) {
     if (s.email) staffByEmail.set(s.email.toLowerCase(), s.id)
@@ -142,11 +123,20 @@ export async function runGmailSync(): Promise<{
           (e) => !staffSet(e),
         )
         for (const e of candidates) {
-          const dom = domainOf(e)
-          const cid = domainToClient.get(dom)
-          if (cid) {
-            clientId = cid
+          const byAddr = emailToClientId.get(e.toLowerCase())
+          if (byAddr) {
+            clientId = byAddr
             break
+          }
+        }
+        if (!clientId) {
+          for (const e of candidates) {
+            const dom = domainOf(e)
+            const cid = domainToClientId.get(dom)
+            if (cid) {
+              clientId = cid
+              break
+            }
           }
         }
 
